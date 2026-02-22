@@ -34,13 +34,14 @@ export class ExecuteTool {
   }
 
   execute(input: unknown, signal: AbortSignal): Promise<ExecuteToolOutput> {
-    const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_S * 1000);
-    const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
-    if (combinedSignal.aborted) {
-      return Promise.resolve({});
-    }
-
     return new Promise<ExecuteToolOutput>((resolve) => {
+      const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_S * 1000);
+      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+      if (combinedSignal.aborted) {
+        resolve({});
+        return;
+      }
+
       const { command } = executeInputSchema.parse(input);
       const proc = spawn('bash', ['-c', command], {
         detached: true,
@@ -57,7 +58,6 @@ export class ExecuteTool {
           if (!resolved) this.signalProcessGroup(proc, 'SIGKILL');
         }, TERMINATION_GRACE_MS).unref();
       };
-
 
       combinedSignal.addEventListener('abort', onAbort);
 
@@ -104,15 +104,7 @@ export class ExecuteTool {
     try {
       process.kill(-proc.pid, signal);
     } catch (error: unknown) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        (error as { code?: string }).code === 'ESRCH'
-      ) {
-        return;
-      }
-      throw error;
+      console.error(error);
     }
   }
 }

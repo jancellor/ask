@@ -8,8 +8,11 @@ import { App } from './tui/app.js';
 const agent = new Agent();
 
 const shutdownManager = new ShutdownManager(async () => {
-  app.unmount();
-  await agent.cancelAll();
+  try {
+    app.unmount();
+  } finally {
+    await agent.cancelAll();
+  }
 });
 shutdownManager.installSignalHandlers();
 

@@ -18,6 +18,7 @@ export type ExecuteToolOutput = {
   signal?: string;
   stdout?: string;
   stderr?: string;
+  error?: string;
 };
 
 export class ExecuteTool {
@@ -26,29 +27,27 @@ export class ExecuteTool {
   definition() {
     return tool({
       description:
-        `Execute a shell command in bash and return stdout/stderr/exit/signal. ` +
+        `Execute a shell command in bash and return stdout/stderr/exit/signal/error. ` +
         `Commands are killed after ${DEFAULT_TIMEOUT_S}s. `,
       inputSchema: executeInputSchema,
     });
   }
 
   execute(input: unknown, signal: AbortSignal): Promise<ExecuteToolOutput> {
-    const { command } = executeInputSchema.parse(input);
-
     const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_S * 1000);
     const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
-
     if (combinedSignal.aborted) {
       return Promise.resolve({});
     }
 
     return new Promise<ExecuteToolOutput>((resolve) => {
+      const { command } = executeInputSchema.parse(input);
       const proc = spawn('bash', ['-c', command], {
         detached: true,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
-      let stdout = '';
-      let stderr = '';
+      const stdoutChunks: string[] = [];
+      const stderrChunks: string[] = [];
       let resolved = false;
 
       const onAbort = () => {
@@ -59,19 +58,35 @@ export class ExecuteTool {
         }, TERMINATION_GRACE_MS).unref();
       };
 
+
       combinedSignal.addEventListener('abort', onAbort);
 
       proc.stdout.on('data', (data: Buffer) => {
-        stdout += data.toString();
+        stdoutChunks.push(data.toString());
       });
+
       proc.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        stderrChunks.push(data.toString());
+      });
+
+      const resolveOnce = (result: ExecuteToolOutput) => {
+        if (resolved) return;
+        resolved = true;
+        combinedSignal.removeEventListener('abort', onAbort);
+        resolve(result);
+      };
+
+      proc.on('error', (err: Error) => {
+        const error = err.message || String(err);
+        resolveOnce({
+          ...(error && { error }),
+        });
       });
 
       proc.on('close', (exit, signal) => {
-        resolved = true;
-        combinedSignal.removeEventListener('abort', onAbort);
-        resolve({
+        const stdout = stdoutChunks.join('');
+        const stderr = stderrChunks.join('');
+        resolveOnce({
           ...(exit !== null && { exit }),
           ...(signal && { signal }),
           ...(stdout && { stdout }),
@@ -85,12 +100,7 @@ export class ExecuteTool {
     proc: ChildProcessByStdio<null, Readable, Readable>,
     signal: NodeJS.Signals | number,
   ): void {
-    if (proc.killed) {
-      return;
-    }
-    if (!proc.pid) {
-      return;
-    }
+    if (proc.killed || !proc.pid) return;
     try {
       process.kill(-proc.pid, signal);
     } catch (error: unknown) {

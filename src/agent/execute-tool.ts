@@ -10,7 +10,7 @@ const TERMINATION_GRACE_MS = 5000;
 const executeInputSchema = z.object({
   command: z
     .string()
-    .describe('The bash command to execute, ie `bash -c <COMMAND>`'),
+    .describe('The shell command to execute using `bash -c`'),
 });
 
 export type ExecuteToolOutput = {
@@ -27,82 +27,74 @@ export class ExecuteTool {
   definition() {
     return tool({
       description:
-        `Execute a shell command in bash and return stdout/stderr/exit/signal/error. ` +
+        'Executes a shell command using `bash -c`. ' +
+        'Can be multiline or whatever `bash -c` accepts. ' +
+        'Returns stdout/stderr/exit/signal/error. ' +
         `Commands are killed after ${DEFAULT_TIMEOUT_S}s. `,
       inputSchema: executeInputSchema,
     });
   }
 
-  execute(input: unknown, signal: AbortSignal): Promise<ExecuteToolOutput> {
+  async execute(input: unknown, signal: AbortSignal): Promise<ExecuteToolOutput> {
+    const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_S * 1000);
+    const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
+    if (combinedSignal.aborted) {
+      return {};
+    }
+
+    const { command } = executeInputSchema.parse(input);
+    const child = spawn('bash', ['-c', command], {
+      detached: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    let error: string | undefined;
+    let closed = false;
+
+    const onAbort = () => {
+      if (!closed) this.signalProcessGroup(child, 'SIGTERM');
+      setTimeout(() => {
+        if (!closed) this.signalProcessGroup(child, 'SIGKILL');
+      }, TERMINATION_GRACE_MS).unref();
+    };
+
+    combinedSignal.addEventListener('abort', onAbort);
+
+    child.stdout.on('data', (data: Buffer) => {
+      stdoutChunks.push(data.toString());
+    });
+
+    child.stderr.on('data', (data: Buffer) => {
+      stderrChunks.push(data.toString());
+    });
+
+    child.on('error', (err: Error) => {
+      error = err.message || String(err);
+    });
+
     return new Promise<ExecuteToolOutput>((resolve) => {
-      const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_S * 1000);
-      const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
-      if (combinedSignal.aborted) {
-        resolve({});
-        return;
-      }
-
-      const { command } = executeInputSchema.parse(input);
-      const proc = spawn('bash', ['-c', command], {
-        detached: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      const stdoutChunks: string[] = [];
-      const stderrChunks: string[] = [];
-      let resolved = false;
-
-      const onAbort = () => {
-        if (resolved) return;
-        this.signalProcessGroup(proc, 'SIGTERM');
-        setTimeout(() => {
-          if (!resolved) this.signalProcessGroup(proc, 'SIGKILL');
-        }, TERMINATION_GRACE_MS).unref();
-      };
-
-      combinedSignal.addEventListener('abort', onAbort);
-
-      proc.stdout.on('data', (data: Buffer) => {
-        stdoutChunks.push(data.toString());
-      });
-
-      proc.stderr.on('data', (data: Buffer) => {
-        stderrChunks.push(data.toString());
-      });
-
-      const resolveOnce = (result: ExecuteToolOutput) => {
-        if (resolved) return;
-        resolved = true;
+      child.on('close', (exit, signal) => {
+        closed = true;
         combinedSignal.removeEventListener('abort', onAbort);
-        resolve(result);
-      };
-
-      proc.on('error', (err: Error) => {
-        const error = err.message || String(err);
-        resolveOnce({
-          ...(error && { error }),
-        });
-      });
-
-      proc.on('close', (exit, signal) => {
-        const stdout = stdoutChunks.join('');
-        const stderr = stderrChunks.join('');
-        resolveOnce({
+        resolve({
           ...(exit !== null && { exit }),
           ...(signal && { signal }),
-          ...(stdout && { stdout }),
-          ...(stderr && { stderr }),
+          ...(error && { error }),
+          ...(stdoutChunks.length && { stdout: stdoutChunks.join('') }),
+          ...(stderrChunks.length && { stderr: stderrChunks.join('') }),
         });
       });
     });
   }
 
   private signalProcessGroup(
-    proc: ChildProcessByStdio<null, Readable, Readable>,
+    child: ChildProcessByStdio<null, Readable, Readable>,
     signal: NodeJS.Signals | number,
   ): void {
-    if (proc.killed || !proc.pid) return;
+    if (child.killed || !child.pid) return;
     try {
-      process.kill(-proc.pid, signal);
+      process.kill(-child.pid, signal);
     } catch (error: unknown) {
       console.error(error);
     }

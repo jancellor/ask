@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "bin": "./src/index.tsx",
+  "bin": "./src/index.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun src/index.tsx",
+    "dev": "bun src/index.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

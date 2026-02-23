@@ -13,15 +13,18 @@ import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
 
-export type GentMessage = ModelMessage & { _uiHidden?: boolean };
+export type GentMessage = ModelMessage & { _meta?: { uiHidden?: boolean } };
 
 export const ABORTED_MESSAGE = '[Aborted]';
+export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
   messages: GentMessage[] = [];
   readonly modelId: string;
 
-  private updateListeners = new Set<() => void>();
+  private updateListeners = new Set<
+    (newMessages: GentMessage[], allMessages: GentMessage[]) => void
+  >();
   private languageModel: LanguageModel;
   private systemPrompt: string;
   private tools: Tools;
@@ -41,11 +44,16 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  private notify(): void {
-    this.updateListeners.forEach((listener) => listener());
+  private addMessages(newMessages: GentMessage[]): void {
+    this.messages.push(...newMessages);
+    this.updateListeners.forEach((listener) =>
+      listener(newMessages, this.messages),
+    );
   }
 
-  addUpdateListener(listener: () => void): () => void {
+  addUpdateListener(
+    listener: (newMessages: GentMessage[], allMessages: GentMessage[]) => void,
+  ): () => void {
     this.updateListeners.add(listener);
     return () => {
       this.updateListeners.delete(listener);
@@ -61,7 +69,7 @@ export class Agent {
     await this.serializer.submit(async () => {
       beforeClear?.();
       this.messages = [];
-      this.notify();
+      this.addMessages([]);
     });
   }
 
@@ -69,8 +77,7 @@ export class Agent {
     return this.serializer.submit(async () => {
       await this.addInitialMessages();
 
-      this.messages.push({ role: 'user', content: message });
-      this.notify();
+      this.addMessages([{ role: 'user', content: message }]);
 
       this.controller = new AbortController();
       const { signal } = this.controller;
@@ -85,22 +92,15 @@ export class Agent {
             abortSignal: signal,
           });
 
-          this.messages.push(...result.response.messages);
-          this.notify();
+          this.addMessages(result.response.messages as GentMessage[]);
 
           if (result.toolCalls.length === 0) break;
-
           const toolResults = await this.callTools(result.toolCalls, signal);
-          this.messages.push({ role: 'tool', content: toolResults });
-          this.notify();
+
+          this.addMessages([{ role: 'tool', content: toolResults }]);
         }
       } catch (e) {
-        if (!signal.aborted) throw e;
-        const lastMessage = this.messages.at(-1);
-        if (lastMessage && lastMessage.role !== 'assistant') {
-          this.messages.push({ role: 'assistant', content: ABORTED_MESSAGE });
-          this.notify();
-        }
+        this.addMessages([{ role: 'assistant', content: ERROR_MESSAGE }]);
       } finally {
         this.controller = null;
       }
@@ -116,7 +116,9 @@ export class Agent {
     if (!this.messages.length) {
       const initContent = await new InitPrompt().build();
       if (initContent) {
-        this.messages.push({ role: 'user', content: initContent, _uiHidden: true });
+        this.addMessages([
+          { role: 'user', content: initContent, _meta: { uiHidden: true } },
+        ]);
       }
     }
   }

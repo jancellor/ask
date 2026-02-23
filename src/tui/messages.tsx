@@ -13,7 +13,7 @@ interface MessagesProps {
 }
 
 export function Messages({ messages: rawMessages, model }: MessagesProps) {
-  const messages = rawMessages.filter((m) => !m._uiHidden);
+  const messages = rawMessages.filter((m) => !m._meta?.uiHidden);
   const toolResults = buildToolResultsMap(messages);
 
   const parts = messages.flatMap((message, i) =>

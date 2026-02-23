@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useInputState } from './use-input-state.js';
 
 const CLEAR_COMMAND = '/clear';
+const CURSOR_BLINK_MS = 600;
 
 type InputProps = {
   onSubmit: (message: string) => void | Promise<void>;
@@ -31,7 +32,30 @@ export function Input({ onSubmit, onAbort, onClear, onRequestShutdown }: InputPr
     clear,
   } = useInputState();
 
+  const [showCursor, setShowCursor] = useState(true);
+  const [keyPulse, setKeyPulse] = useState(0);
+
+  useEffect(() => {
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    const timeoutId = setTimeout(() => {
+      setShowCursor(false);
+      intervalId = setInterval(() => {
+        setShowCursor((prev) => !prev);
+      }, CURSOR_BLINK_MS);
+    }, CURSOR_BLINK_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [keyPulse]);
+
   useInput((input, key) => {
+    setShowCursor(true);
+    setKeyPulse((pulse) => pulse + 1);
+
     if (key.escape) {
       onAbort();
       return;
@@ -138,7 +162,7 @@ export function Input({ onSubmit, onAbort, onClear, onRequestShutdown }: InputPr
       <Text color="gray">{divider}</Text>
       <Text>
         {beforeCursor}
-        <Text inverse>{atCursor}</Text>
+        {showCursor ? <Text inverse>{atCursor}</Text> : atCursor}
         {afterCursor}
       </Text>
       <Text color="gray">{divider}</Text>

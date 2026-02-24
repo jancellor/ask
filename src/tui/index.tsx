@@ -1,4 +1,3 @@
-#!/usr/bin/env bun
 import React from 'react';
 import { render } from 'ink';
 import { Agent, SessionStore } from '../agent/index.js';

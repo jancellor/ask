@@ -4,6 +4,7 @@ import { homedir } from 'os';
 
 interface WelcomeProps {
   model: string;
+  provider: string;
 }
 
 function shortDir(): string {
@@ -12,7 +13,7 @@ function shortDir(): string {
   return cwd.startsWith(home) ? '~' + cwd.slice(home.length) : cwd;
 }
 
-export function Welcome({ model }: WelcomeProps) {
+export function Welcome({ model, provider }: WelcomeProps) {
   const dir = shortDir();
 
   return (
@@ -21,12 +22,14 @@ export function Welcome({ model }: WelcomeProps) {
       <Text>
         <Text>┌─┐</Text>
         <Text>{'   '}Gent</Text>
+        <Text dimColor> · </Text>
+        <Text>{dir}</Text>
       </Text>
       <Text>
         <Text>┴─┴</Text>
-        <Text>{'   '}{model}</Text>
-        <Text> · </Text>
-        <Text>{dir}</Text>
+        <Text>{'   '}{provider}</Text>
+        <Text dimColor> · </Text>
+        <Text>{model}</Text>
       </Text>
       <Text> </Text>
     </Box>

@@ -10,9 +10,10 @@ import { Welcome } from './welcome.js';
 interface MessagesProps {
   messages: GentMessage[];
   model: string;
+  provider: string;
 }
 
-export function Messages({ messages: rawMessages, model }: MessagesProps) {
+export function Messages({ messages: rawMessages, model, provider }: MessagesProps) {
   const messages = rawMessages.filter((m) => !m._meta?.uiHidden);
   const toolResults = buildToolResultsMap(messages);
 
@@ -70,7 +71,7 @@ export function Messages({ messages: rawMessages, model }: MessagesProps) {
     <Box flexGrow={1} flexDirection="column">
       <Static items={allStaticItems}>
         {(item) => {
-          if (item.type === 'welcome') return <Welcome key="welcome" model={model} />;
+          if (item.type === 'welcome') return <Welcome key="welcome" model={model} provider={provider} />;
           return renderPart(item as MessagePart);
         }}
       </Static>

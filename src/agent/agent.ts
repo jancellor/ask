@@ -23,6 +23,7 @@ export const ERROR_MESSAGE = '[Error]';
 export class Agent {
   messages: GentMessage[] = [];
   readonly modelId: string;
+  readonly baseUrl: string;
 
   private updateListeners = new Set<
     (newMessages: GentMessage[], allMessages: GentMessage[]) => void
@@ -36,6 +37,7 @@ export class Agent {
   constructor() {
     const config = new ConfigReader().read();
     this.modelId = config.model;
+    this.baseUrl = config.baseUrl;
     const provider = createOpenAICompatible({
       name: 'gent',
       apiKey: config.apiKey,

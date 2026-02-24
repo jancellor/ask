@@ -1,9 +1,19 @@
-import { Agent, type GentMessage } from '../agent/index.js';
+import { Agent, SessionStore, type GentMessage } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 
-export async function runCli(message: string): Promise<void> {
+type RunCliOptions = {
+  sessionId?: string;
+};
+
+export async function runCli(
+  message: string,
+  options: RunCliOptions = {},
+): Promise<void> {
   const agent = new Agent();
+  const sessionStore = new SessionStore(options.sessionId);
+  sessionStore.attach(agent);
+  console.error(`[Session: ${sessionStore.sessionId}]`);
 
   const shutdownManager = new ShutdownManager(async () => {
     await agent.cancelAll();

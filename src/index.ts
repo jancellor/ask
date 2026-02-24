@@ -6,12 +6,20 @@ function printUsage(): void {
   console.log('Usage:');
   console.log('  gent                    Run in interactive TUI mode');
   console.log('  gent -p, --print <msg>  Run in non-interactive mode');
+  console.log(
+    '  gent --session <id>     Use specific session ID for message storage',
+  );
   console.log('  gent -h, --help         Show this help');
 }
 
-function parseArgs(args: string[]): { message: string | null; help: boolean } {
+function parseArgs(args: string[]): {
+  message: string | null;
+  help: boolean;
+  sessionId: string | null;
+} {
   let message: string | null = null;
   let help = false;
+  let sessionId: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -31,6 +39,16 @@ function parseArgs(args: string[]): { message: string | null; help: boolean } {
       continue;
     }
 
+    if (arg === '--session') {
+      if (i + 1 >= args.length) {
+        console.error('Error: --session requires an argument');
+        process.exit(1);
+      }
+      sessionId = args[i + 1];
+      i++; // Skip the next argument since we consumed it
+      continue;
+    }
+
     // If no flag specified but there's a positional arg, treat it as message
     if (!arg.startsWith('-') && message === null) {
       message = arg;
@@ -41,12 +59,12 @@ function parseArgs(args: string[]): { message: string | null; help: boolean } {
     process.exit(1);
   }
 
-  return { message, help };
+  return { message, help, sessionId };
 }
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const { message, help } = parseArgs(args);
+  const { message, help, sessionId } = parseArgs(args);
 
   if (help) {
     printUsage();
@@ -55,10 +73,10 @@ async function main(): Promise<void> {
 
   if (message !== null) {
     // Non-interactive mode
-    await runCli(message);
+    await runCli(message, { sessionId: sessionId ?? undefined });
   } else {
     // Interactive TUI mode
-    runTui();
+    runTui({ sessionId: sessionId ?? undefined });
   }
 }
 

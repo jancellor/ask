@@ -38,12 +38,44 @@ export class ConfigReader {
     throw new Error(`neither ${envKey} nor ${fileKey} is set`);
   }
 
+  private optionalEnvOrFile(
+    envKey: string,
+    fileKey: string,
+    fileValues: Record<string, unknown>,
+  ): string | undefined {
+    const envValue = process.env[envKey];
+    if (envValue && envValue.trim()) return envValue.trim();
+
+    const fileValue = fileValues[fileKey];
+    if (fileValue == null) return undefined;
+
+    const value = String(fileValue).trim();
+    return value ? value : undefined;
+  }
+
+  private isOpenAIBaseUrl(baseUrl: string): boolean {
+    try {
+      return new URL(baseUrl).hostname.includes('openai.com');
+    } catch {
+      return baseUrl.includes('openai.com');
+    }
+  }
+
   read(): Config {
     const fileValues = this.readConfigFile();
+    const baseUrl = this.envOrFile('GENT_BASE_URL', 'base_url', fileValues);
+    const apiKey = this.optionalEnvOrFile('GENT_API_KEY', 'api_key', fileValues);
+
+    if (!apiKey && !this.isOpenAIBaseUrl(baseUrl)) {
+      throw new Error(
+        'neither GENT_API_KEY nor api_key is set (required unless GENT_BASE_URL/base_url points to openai.com)',
+      );
+    }
+
     return {
-      apiKey: this.envOrFile('GENT_API_KEY', 'api_key', fileValues),
+      apiKey: apiKey ?? 'oauth',
       model: this.envOrFile('GENT_MODEL', 'model', fileValues),
-      baseUrl: this.envOrFile('GENT_BASE_URL', 'base_url', fileValues),
+      baseUrl,
     };
   }
 }

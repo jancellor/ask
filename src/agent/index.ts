@@ -4,3 +4,4 @@ export {
   ERROR_MESSAGE,
   type GentMessage,
 } from './agent.js';
+export { SessionStore } from './session-store.js';

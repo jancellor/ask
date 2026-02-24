@@ -9,11 +9,13 @@ import {
 } from 'ai';
 import { ConfigReader } from './config.js';
 import { InitPrompt } from './init-prompt.js';
+import { createOpenAISubscriptionFetch } from './openai-subscription-fetch.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
 
-export type GentMessage = ModelMessage & { _meta?: { uiHidden?: boolean } };
+export type GentMessageMeta = { uiHidden?: boolean; timestamp?: string };
+export type GentMessage = ModelMessage & { _meta?: GentMessageMeta };
 
 export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
@@ -38,6 +40,7 @@ export class Agent {
       name: 'gent',
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
+      fetch: createOpenAISubscriptionFetch(),
     });
     this.languageModel = provider(config.model);
     this.systemPrompt = new SystemPrompt().build();
@@ -45,9 +48,15 @@ export class Agent {
   }
 
   private addMessages(newMessages: GentMessage[]): void {
-    this.messages.push(...newMessages);
+    const timestamp = new Date().toISOString();
+    const normalizedMessages = newMessages.map((message) => ({
+      ...message,
+      _meta: { ...message._meta, timestamp },
+    }));
+
+    this.messages.push(...normalizedMessages);
     this.updateListeners.forEach((listener) =>
-      listener(newMessages, this.messages),
+      listener(normalizedMessages, this.messages),
     );
   }
 
@@ -99,8 +108,11 @@ export class Agent {
 
           this.addMessages([{ role: 'tool', content: toolResults }]);
         }
-      } catch (e) {
-        this.addMessages([{ role: 'assistant', content: ERROR_MESSAGE }]);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        this.addMessages([
+          { role: 'assistant', content: ERROR_MESSAGE + ': ' + msg },
+        ]);
       } finally {
         this.controller = null;
       }

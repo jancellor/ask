@@ -1,12 +1,18 @@
 #!/usr/bin/env bun
 import React from 'react';
 import { render } from 'ink';
-import { Agent } from '../agent/index.js';
+import { Agent, SessionStore } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import { App } from './app.js';
 
-export function runTui(): void {
+type RunTuiOptions = {
+  sessionId?: string;
+};
+
+export function runTui(options: RunTuiOptions = {}): void {
   const agent = new Agent();
+  const sessionStore = new SessionStore(options.sessionId);
+  sessionStore.attach(agent);
 
   const shutdownManager = new ShutdownManager(async () => {
     try {

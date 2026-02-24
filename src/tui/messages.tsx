@@ -43,18 +43,25 @@ export function Messages({ messages: rawMessages, model }: MessagesProps) {
   ];
 
   const renderPart = (p: MessagePart) => {
-    if (p.type === 'text') {
-      const Component = p.role === 'user' ? UserPartMessage : AssistantPartMessage;
-      return <Component key={p.id} text={p.text} />;
+    if (p.role === 'assistant' && (p.type === 'text' || p.type === 'reasoning')) {
+      return <AssistantPartMessage key={p.id} text={p.text} dim={p.type === 'reasoning'} />;
     }
-    return (
-      <ToolPartMessage
-        key={p.id}
-        toolName={p.toolName ?? toolResults.get(p.toolCallId)?.toolName}
-        input={p.input}
-        output={toolResults.get(p.toolCallId)?.output}
-      />
-    );
+    if (p.role === 'user') {
+      if (p.type === 'text') {
+        return <UserPartMessage key={p.id} text={p.text} />;
+      }
+    }
+    if (p.type === 'tool-call') {
+      return (
+        <ToolPartMessage
+          key={p.id}
+          toolName={p.toolName ?? toolResults.get(p.toolCallId)?.toolName}
+          input={p.input}
+          output={toolResults.get(p.toolCallId)?.output}
+        />
+      );
+    }
+    return null;
   };
 
   const showSpinner = messages.length > 0 && messages.at(-1)!.role !== 'assistant';
@@ -75,6 +82,7 @@ export function Messages({ messages: rawMessages, model }: MessagesProps) {
 
 type ContentPart =
   | { type: 'text'; text: string }
+  | { type: 'reasoning'; text: string }
   | { type: 'tool-call'; toolCallId: string; toolName: string | null; input: unknown };
 
 function getContentParts(content: unknown): ContentPart[] {
@@ -85,6 +93,8 @@ function getContentParts(content: unknown): ContentPart[] {
     if (!p || typeof p !== 'object') continue;
     if (p.type === 'text' && typeof p.text === 'string') {
       parts.push({ type: 'text', text: p.text });
+    } else if (p.type === 'reasoning' && typeof p.text === 'string') {
+      parts.push({ type: 'reasoning', text: p.text });
     } else if (p.type === 'tool-call' && typeof p.toolCallId === 'string') {
       parts.push({
         type: 'tool-call',
@@ -94,7 +104,28 @@ function getContentParts(content: unknown): ContentPart[] {
       });
     }
   }
-  return parts;
+  // return parts;
+  // noticed reasoning parts coming second sometimes with openrouter/minimax
+  return sortParts(parts);
+}
+
+function sortParts(parts: ContentPart[]) {
+  const sorted = [...parts].sort(
+    (a, b) => getContentPartDisplayOrder(a) - getContentPartDisplayOrder(b),
+  );
+  const orderChanged = sorted.some((part, idx) => part !== parts[idx]);
+  if (orderChanged) {
+    console.error(
+      '[TUI]: Reordered assistant content parts for display.\n',
+    );
+  }
+  return sorted;
+}
+
+function getContentPartDisplayOrder(part: ContentPart): number {
+  if (part.type === 'reasoning') return 0;
+  if (part.type === 'text') return 1;
+  return 2; // tool-call
 }
 
 type ToolResultData = {

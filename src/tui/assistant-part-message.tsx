@@ -3,13 +3,16 @@ import { Box, Text } from 'ink';
 import { ABORTED_MESSAGE, ERROR_MESSAGE } from '../agent/index.js';
 import { parseMarkdown } from './markdown.js';
 
-export function AssistantPartMessage({ text }: { text: string }) {
-  const error = [ABORTED_MESSAGE, ERROR_MESSAGE].includes(text);
-  const parsed = error ? text : parseMarkdown(text);
+export function AssistantPartMessage({ text, dim }: { text: string; dim?: boolean }) {
+  const error = [ABORTED_MESSAGE, ERROR_MESSAGE].some((e) =>
+    text.startsWith(e),
+  );
+  const parsed = error || dim ? text : parseMarkdown(text);
+  const color = error ? 'red' : dim ? 'gray' : undefined;
 
   return (
     <Box flexDirection="column">
-      <Text color={error ? 'red' : undefined} dimColor={error}>
+      <Text color={color} dimColor={error}>
         {parsed}
       </Text>
       <Text> </Text>

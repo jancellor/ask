@@ -88,3 +88,17 @@ By keeping the context of yourself and subagents limited to only the scope they 
 overall accuracy is typically improved.
 Also, by invoking multiple subagents in a single turn, you can achieve parallelism
 and therefore faster performance for tasks that are truly independent.
+
+## Session storage
+
+Messages are persisted to `./.gent/sessions/<session-id>.jsonl` as raw AI SDK messages.
+The message contains additional metadata in the `_meta` property such as `timestamp`.
+When using subagents, consider passing an explicit session ID via `gent --session <id> ...`.
+This allows you to inspect the context of the subagent, though note that
+usually you explicitly don't want the subagent context in your own. 
+
+## Web
+
+For searching or fetching from the web, you may delegate to `codex`, another coding agent.
+
+    codex exec --skip-git-repo-check "What is the weather like in London today?"

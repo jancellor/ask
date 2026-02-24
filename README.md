@@ -1,8 +1,8 @@
 # Gent
 
-A minimal coding agent in a few thousand lines of TypeScript.
+A minimal coding agent.
 
-https://github.com/jancellor/gent/raw/main/demo/demo.mp4
+![Gent demo](demo/demo.gif)
 
 ## Why
 

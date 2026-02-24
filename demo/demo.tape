@@ -1,4 +1,4 @@
-Output demo.mp4
+Output demo.gif
 
 Set Width 1200
 Set Height 900

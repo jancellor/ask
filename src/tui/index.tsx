@@ -6,7 +6,7 @@ import { App } from './app.js';
 
 type RunTuiOptions = {
   sessionId?: string;
-  continueLastSession?: boolean;
+  continueSession?: boolean;
 };
 
 export async function runTui(options: RunTuiOptions = {}): Promise<void> {

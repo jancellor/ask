@@ -4,7 +4,7 @@ import type { TextPart } from 'ai';
 
 type RunCliOptions = {
   sessionId?: string;
-  continueLastSession?: boolean;
+  continueSession?: boolean;
 };
 
 export async function runCli(

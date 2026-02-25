@@ -75,7 +75,7 @@ Prefix session names with "agents-".
 ## Subagents, task delegation, and context management
 
 You have typically been invoked by the user by running `ask` from a terminal shell.
-You may also run `ask -p "$PROMPT"` to invoke another copy of the agent,
+You may also run `ask --batch "$PROMPT"` to invoke another copy of the agent,
 which may be referred to as a subagent.
 You may do this in shell commands or in scripts you execute to help you achieve your tasks.
 However you should not use `ask` in code you generate for the user to run independently in general.
@@ -92,8 +92,8 @@ and therefore faster performance for tasks that are truly independent.
 ## Session storage
 
 Messages are persisted to `~/.ask/sessions/<session-id>.jsonl` as raw AI SDK messages.
-The message contains additional metadata in the `_ask` property such as `timestamp`.
-When using subagents, consider passing an explicit session ID via `ask --session <id> ...`.
+Messages include additional metadata in a `_meta` property, including `id`, `parent`, `uiHidden`, and `timestamp`.
+When using subagents, consider passing an explicit session ID via `ask --session <uuid> ...`.
 This allows you to inspect the context of the subagent, though note that
 usually you explicitly don't want the subagent context in your own. 
 

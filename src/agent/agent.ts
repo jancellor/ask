@@ -3,6 +3,7 @@ import { appendFile, mkdir, readFile, readdir, stat } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { z } from 'zod';
 import {
   generateText,
   type LanguageModel,
@@ -68,17 +69,23 @@ export class Agent {
   }
 
   static async create(
-    options: { sessionId?: string; continueLastSession?: boolean } = {},
+    options: { sessionId?: string; continueSession?: boolean } = {},
   ): Promise<Agent> {
     let sessionId = options.sessionId;
 
-    if (!sessionId && options.continueLastSession) {
+    if (!sessionId && options.continueSession) {
       const last = await Agent.lastSessionId();
       if (last === null) throw new Error('no previous session found');
       sessionId = last;
     }
 
-    const agent = new Agent(sessionId ?? randomUUID());
+    sessionId = sessionId ?? randomUUID();
+
+    if (!z.uuid().safeParse(sessionId).success) {
+      throw new Error(`invalid session ID (expected UUID): ${sessionId}`);
+    }
+
+    const agent = new Agent(sessionId);
     if (sessionId) {
       await agent.loadMessages();
     }

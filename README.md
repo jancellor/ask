@@ -18,15 +18,15 @@ It runs with full shell access, so it needs an external sandbox.
 Basic features are missing.
 Even so, the core loop works and is useful for real coding tasks.
 It should be easy to experiment with different task delegation patterns.
-For example, subagents are just self invocations `ask -p`.
+For example, subagents are just self invocations `ask "msg"`.
 Usage is controlled by the system prompt.
 
 ## Features
 
 - **Single tool.** One `execute` tool runs bash commands. No specialized file-editing, search, or filesystem tools.
-- **Interactive and scriptable.** Terminal UI with markdown rendering and streaming output, or `ask -p "..."` for non-interactive use.
+- **Interactive and scriptable.** Terminal UI with markdown rendering and streaming output, or `ask "msg"` for batch mode use.
 - **Session persistence.** Conversations are saved as JSONL to `~/.ask/sessions/`.
-- **Subagent delegation.** An agent can simply invoke `ask -p "..."` to isolate context or run in parallel.
+- **Subagent delegation.** An agent can simply invoke `ask "msg"` to isolate context or run in parallel.
 - **Project-level instructions.** `AGENTS.md` files provide project-specific context. `SKILL.md` files describe reusable capabilities.
 
 ## Setup
@@ -60,8 +60,11 @@ Or create `~/.config/ask/config.json`:
 Run:
 
 ```bash
-ask                 # Interactive
-ask -p "prompt"     # Non-interactive
+ask                  # Interactive mode
+ask <msg>            # Batch mode
+ask --continue       # Continue most recent session
+ask --session <uuid> # Start or continue a specific session
+ask --help           # More options
 ```
 
 ## Architecture

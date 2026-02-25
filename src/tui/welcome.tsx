@@ -17,18 +17,9 @@ export function Welcome({ model, provider }: WelcomeProps) {
   const dir = shortDir();
 
   return (
-    <Box flexDirection="column" paddingLeft={2}>
+    <Box flexDirection="column">
       <Text> </Text>
-      <Text>
-        <Text>Ask</Text>
-        <Text dimColor> · </Text>
-        <Text>{dir}</Text>
-      </Text>
-      <Text>
-        <Text>{provider}</Text>
-        <Text dimColor> · </Text>
-        <Text>{model}</Text>
-      </Text>
+      <Text>Ask <Text dimColor>·</Text> {provider} <Text dimColor>·</Text> {model} <Text dimColor>·</Text> {dir}</Text>
       <Text> </Text>
     </Box>
   );

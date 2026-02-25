@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
   generateText,
@@ -14,8 +15,18 @@ import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
 
-export type AskMessageMeta = { uiHidden?: boolean; timestamp?: string };
+export type AskMessageMeta = {
+  id: string;
+  parent?: string | null;
+  uiHidden?: boolean;
+  timestamp?: string;
+};
 export type AskMessage = ModelMessage & { _meta?: AskMessageMeta };
+
+export interface AgentListener {
+  onMessages?(messages: AskMessage[]): void | Promise<void>;
+  onClear?(): void | Promise<void>;
+}
 
 export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
@@ -25,9 +36,8 @@ export class Agent {
   readonly modelId: string;
   readonly baseUrl: string;
 
-  private updateListeners = new Set<
-    (newMessages: AskMessage[], allMessages: AskMessage[]) => void
-  >();
+  private readonly listeners: AgentListener[] = [];
+  private lastMessageId: string | null = null;
   private languageModel: LanguageModel;
   private systemPrompt: string;
   private tools: Tools;
@@ -49,26 +59,32 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  private addMessages(newMessages: AskMessage[]): void {
+  private async addMessages(newMessages: AskMessage[], uiHidden = false): Promise<void> {
     const timestamp = new Date().toISOString();
-    const normalizedMessages = newMessages.map((message) => ({
-      ...message,
-      _meta: { ...message._meta, timestamp },
-    }));
+    const enriched = newMessages.map((message, i) => {
+      const id = randomUUID();
+      const _meta: AskMessageMeta = { id, timestamp, uiHidden };
+      if (i === 0 && this.lastMessageId === null) {
+        _meta.parent = null;
+      }
+      return { ...message, _meta };
+    });
 
-    this.messages.push(...normalizedMessages);
-    this.updateListeners.forEach((listener) =>
-      listener(normalizedMessages, this.messages),
-    );
+    if (enriched.length > 0) {
+      this.lastMessageId = enriched.at(-1)!._meta!.id;
+    }
+
+    this.messages.push(...enriched);
+    await Promise.all(this.listeners.map((l) => l.onMessages?.(enriched)));
   }
 
-  addUpdateListener(
-    listener: (newMessages: AskMessage[], allMessages: AskMessage[]) => void,
-  ): () => void {
-    this.updateListeners.add(listener);
-    return () => {
-      this.updateListeners.delete(listener);
-    };
+  addListener(listener: AgentListener): void {
+    this.listeners.push(listener);
+  }
+
+  removeListener(listener: AgentListener): void {
+    const i = this.listeners.indexOf(listener);
+    if (i !== -1) this.listeners.splice(i, 1);
   }
 
   abort(): void {
@@ -80,7 +96,8 @@ export class Agent {
     await this.serializer.submit(async () => {
       beforeClear?.();
       this.messages = [];
-      this.addMessages([]);
+      this.lastMessageId = null;
+      await Promise.all(this.listeners.map((l) => l.onClear?.()));
     });
   }
 
@@ -88,7 +105,7 @@ export class Agent {
     return this.serializer.submit(async () => {
       await this.addInitialMessages();
 
-      this.addMessages([{ role: 'user', content: message }]);
+      await this.addMessages([{ role: 'user', content: message }]);
 
       this.controller = new AbortController();
       const { signal } = this.controller;
@@ -103,16 +120,16 @@ export class Agent {
             abortSignal: signal,
           });
 
-          this.addMessages(result.response.messages as AskMessage[]);
+          await this.addMessages(result.response.messages as AskMessage[]);
 
           if (result.toolCalls.length === 0) break;
           const toolResults = await this.callTools(result.toolCalls, signal);
 
-          this.addMessages([{ role: 'tool', content: toolResults }]);
+          await this.addMessages([{ role: 'tool', content: toolResults }]);
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        this.addMessages([
+        await this.addMessages([
           { role: 'assistant', content: ERROR_MESSAGE + ': ' + msg },
         ]);
       } finally {
@@ -131,8 +148,8 @@ export class Agent {
       const initContent = await new InitPrompt().build();
       if (initContent) {
         this.addMessages([
-          { role: 'user', content: initContent, _meta: { uiHidden: true } },
-        ]);
+          { role: 'user', content: initContent },
+        ], true);
       }
     }
   }

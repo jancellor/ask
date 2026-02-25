@@ -15,11 +15,13 @@ export function useAgent(agent: Agent): UseAgentResult {
 
   useEffect(() => {
     setMessages([...agent.messages]);
-    const unsubscribe = agent.addUpdateListener(() => {
-      setMessages([...agent.messages]);
-    });
+    const listener = {
+      onMessages: () => setMessages([...agent.messages]),
+      onClear: () => setMessages([]),
+    };
+    agent.addListener(listener);
     return () => {
-      unsubscribe();
+      agent.removeListener(listener);
     };
   }, [agent]);
 

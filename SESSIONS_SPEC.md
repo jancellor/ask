@@ -64,7 +64,7 @@ The tree model is primarily useful for interactive branching in the TUI (going b
 Launches the Ink-based terminal UI. The user types messages in a multi-turn conversation.
 
 ```
-ask                              # new session, interactive
+ask                              # new session, interactive (TTY auto-detected)
 ask --session <id>               # load session, continue interactively
 ask --interactive                # force TUI (overrides auto-detection)
 ask --session <id> --interactive # load session, force TUI
@@ -78,6 +78,7 @@ Runs the agent to completion and exits. Final assistant response is written to *
 ask "message"                    # new session, single-shot
 ask --session <id>               # load session, complete pending response, exit
 ask --session <id> "message"     # load session, send message, run to completion, exit
+ask --batch                      # force non-interactive (overrides auto-detection)
 ```
 
 If `--session` is given with no message, the agent completes any pending response (i.e. the last message in the session is a user or tool message with no assistant response yet). If there is no pending response, this is a no-op or an error.
@@ -89,28 +90,36 @@ stdin is a TTY and no message provided → interactive
 otherwise                              → non-interactive
 ```
 
-Override with `--interactive` (force TUI) or `--no-interactive` (force single-shot).
+Override with `--interactive` (force TUI) or `--batch` (force non-interactive).
 
 ## Message argument
 
-A message may be provided as a trailing positional argument:
+A message may be provided as a positional argument:
 
 ```
 ask "explain this codebase"
 ask --session <id> "what did you find?"
 ```
 
-There is no `-p` / `--print` flag. Whether output goes to stdout vs the TUI is determined by mode, not by how the message is provided.
+Use `--` to disambiguate a message that starts with `-`:
+
+```
+ask -- "--help is a confusing flag name"
+```
+
+Whether output goes to stdout vs the TUI is determined by mode, not by how the message is provided.
 
 stdin as a message source is not in scope.
 
-## Session flag
+## Session flags
 
 `--session <id>` (shorthand `-s <id>`):
 
 - Loads the session's message history before running
 - Appends all new messages to the session file during the run
 - Session ID must be a valid UUID
+
+`--continue` (shorthand `-c`): loads the most recently modified session file. Intended for interactive follow-up in batch mode — not recommended in scripts that run concurrently.
 
 The main agent typically pre-assigns session IDs for subagents:
 
@@ -172,8 +181,9 @@ The `Agent` class accepts an explicit config object and does not read config its
 ask [OPTIONS] [MESSAGE]
 
   --session, -s <id>   Load and continue a session (UUID)
+  --continue, -c       Continue the most recent session
   --interactive        Force TUI mode
-  --no-interactive     Force non-interactive mode
+  --batch              Force non-interactive mode
   --model <id>         Override configured model
   -h, --help           Show help
 ```

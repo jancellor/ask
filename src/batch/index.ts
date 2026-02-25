@@ -2,7 +2,7 @@ import { Agent, type AskMessage } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 
-type RunCliOptions = {
+type RunBatchOptions = {
   sessionId?: string;
   continueSession?: boolean;
 };
@@ -15,9 +15,9 @@ async function readStdin(): Promise<string> {
   return data;
 }
 
-export async function runCli(
+export async function runBatch(
   argument: string | undefined,
-  options: RunCliOptions = {},
+  options: RunBatchOptions = {},
 ): Promise<void> {
   const stdin = !process.stdin.isTTY ? await readStdin() : undefined;
   const message = [stdin, argument].filter(Boolean).join('\n\n');

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { Command } from 'commander';
 import { runTui } from './tui/index.js';
-import { runCli } from './cli/index.js';
+import { runBatch } from './batch/index.js';
 
 async function main(): Promise<void> {
   const program = new Command()
@@ -43,7 +43,7 @@ async function main(): Promise<void> {
   if (useInteractive) {
     await runTui(runOptions);
   } else {
-    await runCli(message, runOptions);
+    await runBatch(message, runOptions);
   }
 }
 

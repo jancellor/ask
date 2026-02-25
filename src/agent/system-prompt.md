@@ -91,8 +91,8 @@ and therefore faster performance for tasks that are truly independent.
 
 ## Session storage
 
-Messages are persisted to `~/.ask/sessions/<sanitized-cwd>/<session-id>.jsonl` as raw AI SDK messages.
-The message contains additional metadata in the `_meta` property such as `timestamp`.
+Messages are persisted to `~/.ask/sessions/<session-id>.jsonl` as raw AI SDK messages.
+The message contains additional metadata in the `_ask` property such as `timestamp`.
 When using subagents, consider passing an explicit session ID via `ask --session <id> ...`.
 This allows you to inspect the context of the subagent, though note that
 usually you explicitly don't want the subagent context in your own. 

@@ -32,12 +32,12 @@ export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
-  messages: AskMessage[] = [];
   readonly modelId: string;
   readonly baseUrl: string;
+  messages: AskMessage[] = [];
 
-  private readonly listeners: AgentListener[] = [];
   private lastMessageId: string | null = null;
+  private listeners: AgentListener[] = [];
   private languageModel: LanguageModel;
   private systemPrompt: string;
   private tools: Tools;
@@ -59,7 +59,10 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  private async addMessages(newMessages: AskMessage[], uiHidden = false): Promise<void> {
+  private async addMessages(
+    newMessages: AskMessage[],
+    uiHidden = false,
+  ): Promise<void> {
     const timestamp = new Date().toISOString();
     const enriched = newMessages.map((message, i) => {
       const id = randomUUID();
@@ -101,7 +104,7 @@ export class Agent {
     });
   }
 
-  sendMessage(message: string): Promise<void> {
+  ask(message: string): Promise<void> {
     return this.serializer.submit(async () => {
       await this.addInitialMessages();
 
@@ -147,9 +150,7 @@ export class Agent {
     if (!this.messages.length) {
       const initContent = await new InitPrompt().build();
       if (initContent) {
-        this.addMessages([
-          { role: 'user', content: initContent },
-        ], true);
+        await this.addMessages([{ role: 'user', content: initContent }], true);
       }
     }
   }

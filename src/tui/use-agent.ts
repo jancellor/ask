@@ -26,7 +26,7 @@ export function useAgent(agent: Agent): UseAgentResult {
   }, [agent]);
 
   const sendMessage = useCallback(
-    (message: string) => agent.sendMessage(message),
+    (message: string) => agent.ask(message),
     [agent],
   );
 

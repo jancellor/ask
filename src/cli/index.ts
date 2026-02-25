@@ -21,19 +21,21 @@ export async function runCli(
   shutdownManager.installSignalHandlers();
 
   // Log tool calls to stderr as they happen
-  agent.addUpdateListener((newMessages) => {
-    for (const msg of newMessages) {
-      if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
-      for (const part of msg.content) {
-        if (part?.type === 'tool-call') {
-          const line = formatToolCall(part.toolName, part.input);
-          console.error(truncate(line, 80));
+  agent.addListener({
+    onMessages(newMessages) {
+      for (const msg of newMessages) {
+        if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
+        for (const part of msg.content) {
+          if (part?.type === 'tool-call') {
+            const line = formatToolCall(part.toolName, part.input);
+            console.error(truncate(line, 80));
+          }
         }
       }
-    }
+    },
   });
 
-  await agent.sendMessage(message);
+  await agent.ask(message);
 
   // Extract and output the final assistant response
   const response = extractFinalResponse(agent.messages);

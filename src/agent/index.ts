@@ -6,4 +6,3 @@ export {
   type AskMessageMeta,
   type AgentListener,
 } from './agent.js';
-export { SessionStore } from './session-store.js';

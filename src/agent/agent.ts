@@ -1,4 +1,7 @@
 import { randomUUID } from 'crypto';
+import { appendFile, mkdir, readFile, readdir, stat } from 'fs/promises';
+import { homedir } from 'os';
+import { join } from 'path';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
   generateText,
@@ -35,7 +38,9 @@ export class Agent {
   readonly modelId: string;
   readonly baseUrl: string;
   messages: AskMessage[] = [];
+  sessionId: string;
 
+  private sessionPath: string;
   private lastMessageId: string | null = null;
   private listeners: AgentListener[] = [];
   private languageModel: LanguageModel;
@@ -44,7 +49,10 @@ export class Agent {
   private serializer = new Serializer();
   private controller: AbortController | null = null;
 
-  constructor() {
+  private constructor(sessionId: string) {
+    this.sessionId = sessionId;
+    this.sessionPath = this.sessionPathFor(sessionId);
+
     const config = new ConfigReader().read();
     this.modelId = config.model;
     this.baseUrl = config.baseUrl;
@@ -59,26 +67,43 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  private async addMessages(
-    newMessages: AskMessage[],
-    uiHidden = false,
-  ): Promise<void> {
-    const timestamp = new Date().toISOString();
-    const enriched = newMessages.map((message, i) => {
-      const id = randomUUID();
-      const _meta: AskMessageMeta = { id, timestamp, uiHidden };
-      if (i === 0 && this.lastMessageId === null) {
-        _meta.parent = null;
-      }
-      return { ...message, _meta };
-    });
+  static async create(
+    options: { sessionId?: string; continueLastSession?: boolean } = {},
+  ): Promise<Agent> {
+    let sessionId = options.sessionId;
 
-    if (enriched.length > 0) {
-      this.lastMessageId = enriched.at(-1)!._meta!.id;
+    if (!sessionId && options.continueLastSession) {
+      const last = await Agent.lastSessionId();
+      if (last === null) throw new Error('no previous session found');
+      sessionId = last;
     }
 
-    this.messages.push(...enriched);
-    await Promise.all(this.listeners.map((l) => l.onMessages?.(enriched)));
+    const agent = new Agent(sessionId ?? randomUUID());
+    if (sessionId) {
+      await agent.loadMessages();
+    }
+    return agent;
+  }
+
+  static async lastSessionId(): Promise<string | null> {
+    const dir = join(homedir(), '.ask', 'sessions');
+    let entries: string[];
+    try {
+      entries = await readdir(dir);
+    } catch {
+      return null;
+    }
+    const jsonlFiles = entries.filter((f) => f.endsWith('.jsonl'));
+    if (jsonlFiles.length === 0) return null;
+
+    let latest: { id: string; mtimeMs: number } | null = null;
+    for (const file of jsonlFiles) {
+      const s = await stat(join(dir, file));
+      if (latest === null || s.mtimeMs > latest.mtimeMs) {
+        latest = { id: file.slice(0, -6), mtimeMs: s.mtimeMs };
+      }
+    }
+    return latest?.id ?? null;
   }
 
   addListener(listener: AgentListener): void {
@@ -100,6 +125,8 @@ export class Agent {
       beforeClear?.();
       this.messages = [];
       this.lastMessageId = null;
+      this.sessionId = randomUUID();
+      this.sessionPath = this.sessionPathFor(this.sessionId);
       await Promise.all(this.listeners.map((l) => l.onClear?.()));
     });
   }
@@ -141,20 +168,6 @@ export class Agent {
     });
   }
 
-  async cancelAll(): Promise<void> {
-    this.abort();
-    await this.serializer.cancelPending();
-  }
-
-  private async addInitialMessages() {
-    if (!this.messages.length) {
-      const initContent = await new InitPrompt().build();
-      if (initContent) {
-        await this.addMessages([{ role: 'user', content: initContent }], true);
-      }
-    }
-  }
-
   private async callTools(
     toolCalls: Array<TypedToolCall<ToolSet>>,
     signal: AbortSignal,
@@ -174,5 +187,69 @@ export class Agent {
         },
       })),
     );
+  }
+
+  async cancelAll(): Promise<void> {
+    this.abort();
+    await this.serializer.cancelPending();
+  }
+
+  private sessionPathFor(sessionId: string): string {
+    return join(homedir(), '.ask', 'sessions', `${sessionId}.jsonl`);
+  }
+
+  private async loadMessages(): Promise<void> {
+    let content: string;
+    try {
+      content = await readFile(this.sessionPath, 'utf-8');
+    } catch {
+      return;
+    }
+    const lines = content.trim().split('\n').filter(Boolean);
+    this.messages = lines.map((line) => JSON.parse(line) as AskMessage);
+    this.lastMessageId = this.messages.at(-1)?._meta?.id ?? null;
+  }
+
+  private async persistMessages(messages: AskMessage[]): Promise<void> {
+    await mkdir(join(homedir(), '.ask', 'sessions'), { recursive: true });
+    for (const message of messages) {
+      await appendFile(
+        this.sessionPath,
+        JSON.stringify(message) + '\n',
+        'utf-8',
+      );
+    }
+  }
+
+  private async addMessages(
+    newMessages: AskMessage[],
+    uiHidden = false,
+  ): Promise<void> {
+    const timestamp = new Date().toISOString();
+    const enriched = newMessages.map((message, i) => {
+      const id = randomUUID();
+      const _meta: AskMessageMeta = { id, timestamp, uiHidden };
+      if (i === 0 && this.lastMessageId === null) {
+        _meta.parent = null;
+      }
+      return { ...message, _meta };
+    });
+
+    if (enriched.length > 0) {
+      this.lastMessageId = enriched.at(-1)!._meta!.id;
+    }
+
+    this.messages.push(...enriched);
+    await this.persistMessages(enriched);
+    await Promise.all(this.listeners.map((l) => l.onMessages?.(enriched)));
+  }
+
+  private async addInitialMessages() {
+    if (!this.messages.length) {
+      const initContent = await new InitPrompt().build();
+      if (initContent) {
+        await this.addMessages([{ role: 'user', content: initContent }], true);
+      }
+    }
   }
 }

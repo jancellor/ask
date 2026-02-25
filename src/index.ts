@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 import { runTui } from './tui/index.js';
 import { runCli } from './cli/index.js';
-import { lastSessionId } from './agent/session-store.js';
 
 function printUsage(): void {
   console.log('Usage: ask [OPTIONS] [MESSAGE]');
@@ -96,26 +95,19 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  let resolvedSessionId = sessionId ?? undefined;
-  if (continueLastSession && resolvedSessionId === undefined) {
-    const last = await lastSessionId();
-    if (last === null) {
-      console.error('Error: no previous session found');
-      process.exit(1);
-    }
-    resolvedSessionId = last;
-  }
-
-  const opts = { sessionId: resolvedSessionId };
+  const opts = {
+    sessionId: sessionId ?? undefined,
+    continueLastSession,
+  };
 
   // Determine mode: explicit flag > auto-detect from TTY + message presence
   const useInteractive =
     interactive !== null
       ? interactive
-      : process.stdin.isTTY === true && message === null;
+      : process.stdin.isTTY && message === null;
 
   if (useInteractive) {
-    runTui(opts);
+    await runTui(opts);
   } else {
     await runCli(message ?? '', opts);
   }

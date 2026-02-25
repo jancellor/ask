@@ -1,19 +1,18 @@
-import { Agent, SessionStore, type AskMessage } from '../agent/index.js';
+import { Agent, type AskMessage } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 
 type RunCliOptions = {
   sessionId?: string;
+  continueLastSession?: boolean;
 };
 
 export async function runCli(
   message: string,
   options: RunCliOptions = {},
 ): Promise<void> {
-  const agent = new Agent();
-  const sessionStore = new SessionStore(options.sessionId);
-  sessionStore.attach(agent);
-  console.error(`[Session: ${sessionStore.sessionId}]`);
+  const agent = await Agent.create(options);
+  console.error(`[Session: ${agent.sessionId}]`);
 
   const shutdownManager = new ShutdownManager(async () => {
     await agent.cancelAll();

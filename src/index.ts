@@ -4,12 +4,12 @@ import { runCli } from './cli/index.js';
 
 function printUsage(): void {
   console.log('Usage:');
-  console.log('  gent                    Run in interactive TUI mode');
-  console.log('  gent -p, --print <msg>  Run in non-interactive mode');
+  console.log('  ask                    Run in interactive TUI mode');
+  console.log('  ask -p, --print <msg>  Run in non-interactive mode');
   console.log(
-    '  gent --session <id>     Use specific session ID for message storage',
+    '  ask --session <id>     Use specific session ID for message storage',
   );
-  console.log('  gent -h, --help         Show this help');
+  console.log('  ask -h, --help         Show this help');
 }
 
 function parseArgs(args: string[]): {

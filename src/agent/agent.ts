@@ -14,19 +14,19 @@ import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
 
-export type GentMessageMeta = { uiHidden?: boolean; timestamp?: string };
-export type GentMessage = ModelMessage & { _meta?: GentMessageMeta };
+export type AskMessageMeta = { uiHidden?: boolean; timestamp?: string };
+export type AskMessage = ModelMessage & { _meta?: AskMessageMeta };
 
 export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
-  messages: GentMessage[] = [];
+  messages: AskMessage[] = [];
   readonly modelId: string;
   readonly baseUrl: string;
 
   private updateListeners = new Set<
-    (newMessages: GentMessage[], allMessages: GentMessage[]) => void
+    (newMessages: AskMessage[], allMessages: AskMessage[]) => void
   >();
   private languageModel: LanguageModel;
   private systemPrompt: string;
@@ -39,7 +39,7 @@ export class Agent {
     this.modelId = config.model;
     this.baseUrl = config.baseUrl;
     const provider = createOpenAICompatible({
-      name: 'gent',
+      name: 'ask',
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
       fetch: createOpenAISubscriptionFetch(),
@@ -49,7 +49,7 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  private addMessages(newMessages: GentMessage[]): void {
+  private addMessages(newMessages: AskMessage[]): void {
     const timestamp = new Date().toISOString();
     const normalizedMessages = newMessages.map((message) => ({
       ...message,
@@ -63,7 +63,7 @@ export class Agent {
   }
 
   addUpdateListener(
-    listener: (newMessages: GentMessage[], allMessages: GentMessage[]) => void,
+    listener: (newMessages: AskMessage[], allMessages: AskMessage[]) => void,
   ): () => void {
     this.updateListeners.add(listener);
     return () => {
@@ -103,7 +103,7 @@ export class Agent {
             abortSignal: signal,
           });
 
-          this.addMessages(result.response.messages as GentMessage[]);
+          this.addMessages(result.response.messages as AskMessage[]);
 
           if (result.toolCalls.length === 0) break;
           const toolResults = await this.callTools(result.toolCalls, signal);

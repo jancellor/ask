@@ -1,4 +1,4 @@
-import { Agent, SessionStore, type GentMessage } from '../agent/index.js';
+import { Agent, SessionStore, type AskMessage } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 
@@ -83,7 +83,7 @@ function truncate(str: string, maxLen: number): string {
   return truncated + '...';
 }
 
-function extractFinalResponse(messages: GentMessage[]): string {
+function extractFinalResponse(messages: AskMessage[]): string {
   // Find the last non-hidden assistant message
   const assistantMessages = messages.filter(
     (m) => !m._meta?.uiHidden && m.role === 'assistant',

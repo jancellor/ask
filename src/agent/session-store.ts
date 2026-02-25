@@ -1,8 +1,14 @@
 import { appendFile, mkdir } from 'fs/promises';
+import { homedir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
-import type { Agent, GentMessage } from './agent.js';
+import type { Agent, AskMessage } from './agent.js';
+
+function sanitizePathSegment(input: string): string {
+  const sanitized = input.replace(/[\\/:]/g, '-');
+  return sanitized || 'cwd';
+}
 
 export class SessionStore {
   readonly sessionId: string;
@@ -16,7 +22,8 @@ export class SessionStore {
     if (!z.uuid().safeParse(this.sessionId).success) {
       throw new Error(`invalid session UUID: ${this.sessionId}`);
     }
-    const sessionsDir = join(process.cwd(), '.gent', 'sessions');
+    const cwdSegment = sanitizePathSegment(process.cwd());
+    const sessionsDir = join(homedir(), '.ask', 'sessions', cwdSegment);
     this.filePath = join(sessionsDir, `${this.sessionId}.jsonl`);
     this.ready = mkdir(sessionsDir, { recursive: true }).then(() => {});
   }
@@ -27,7 +34,7 @@ export class SessionStore {
     });
   }
 
-  private append(messages: GentMessage[]): void {
+  private append(messages: AskMessage[]): void {
     this.appendTail = this.appendTail
       .then(async () => {
         await this.ready;

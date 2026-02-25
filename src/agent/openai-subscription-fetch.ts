@@ -189,7 +189,7 @@ async function loginWithDeviceCode(baseFetch: typeof fetch) {
  */
 export function createOpenAISubscriptionFetch() {
   const baseFetch = fetch
-  const file = expand("~/.config/gent/openai-oauth.json")
+  const file = expand("~/.config/ask/openai-oauth.json")
   const skew = 30_000
   let inflight: Promise<Store> | undefined
 

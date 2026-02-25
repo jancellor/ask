@@ -12,7 +12,7 @@ export class ConfigReader {
   private static CONFIG_PATH = join(
     homedir(),
     '.config',
-    'gent',
+    'ask',
     'config.json',
   );
 
@@ -63,18 +63,18 @@ export class ConfigReader {
 
   read(): Config {
     const fileValues = this.readConfigFile();
-    const baseUrl = this.envOrFile('GENT_BASE_URL', 'base_url', fileValues);
-    const apiKey = this.optionalEnvOrFile('GENT_API_KEY', 'api_key', fileValues);
+    const baseUrl = this.envOrFile('ASK_BASE_URL', 'base_url', fileValues);
+    const apiKey = this.optionalEnvOrFile('ASK_API_KEY', 'api_key', fileValues);
 
     if (!apiKey && !this.isOpenAIBaseUrl(baseUrl)) {
       throw new Error(
-        'neither GENT_API_KEY nor api_key is set (required unless GENT_BASE_URL/base_url points to openai.com)',
+        'neither ASK_API_KEY nor api_key is set (required unless ASK_BASE_URL/base_url points to openai.com)',
       );
     }
 
     return {
       apiKey: apiKey ?? 'oauth',
-      model: this.envOrFile('GENT_MODEL', 'model', fileValues),
+      model: this.envOrFile('ASK_MODEL', 'model', fileValues),
       baseUrl,
     };
   }

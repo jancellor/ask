@@ -20,14 +20,12 @@ export function Welcome({ model, provider }: WelcomeProps) {
     <Box flexDirection="column" paddingLeft={2}>
       <Text> </Text>
       <Text>
-        <Text>┌─┐</Text>
-        <Text>{'   '}Gent</Text>
+        <Text>Ask</Text>
         <Text dimColor> · </Text>
         <Text>{dir}</Text>
       </Text>
       <Text>
-        <Text>┴─┴</Text>
-        <Text>{'   '}{provider}</Text>
+        <Text>{provider}</Text>
         <Text dimColor> · </Text>
         <Text>{model}</Text>
       </Text>

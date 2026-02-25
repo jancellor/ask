@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Static } from 'ink';
-import type { GentMessage } from '../agent/agent.js';
+import type { AskMessage } from '../agent/agent.js';
 import { AssistantPartMessage } from './assistant-part-message.js';
 import { SpinnerMessage } from './spinner-message.js';
 import { ToolPartMessage } from './tool-part-message.js';
@@ -8,7 +8,7 @@ import { UserPartMessage } from './user-part-message.js';
 import { Welcome } from './welcome.js';
 
 interface MessagesProps {
-  messages: GentMessage[];
+  messages: AskMessage[];
   model: string;
   provider: string;
 }
@@ -110,7 +110,7 @@ type ToolResultData = {
   output: unknown;
 };
 
-function buildToolResultsMap(messages: GentMessage[]): Map<string, ToolResultData> {
+function buildToolResultsMap(messages: AskMessage[]): Map<string, ToolResultData> {
   const map = new Map<string, ToolResultData>();
   for (const message of messages) {
     if (message.role !== 'tool' || !Array.isArray(message.content)) continue;

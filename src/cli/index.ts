@@ -7,10 +7,22 @@ type RunCliOptions = {
   continueSession?: boolean;
 };
 
+async function readStdin(): Promise<string> {
+  let data = '';
+  for await (const chunk of process.stdin) {
+    data += String(chunk);
+  }
+  return data;
+}
+
 export async function runCli(
-  message: string,
+  argument: string | undefined,
   options: RunCliOptions = {},
 ): Promise<void> {
+  const stdin = !process.stdin.isTTY ? await readStdin() : undefined;
+  const message = [stdin, argument].filter(Boolean).join('\n\n');
+  if (!message) throw new Error('no message provided (pass [message] or pipe stdin)');
+
   const agent = await Agent.create(options);
   console.error(`[Session: ${agent.sessionId}]`);
 

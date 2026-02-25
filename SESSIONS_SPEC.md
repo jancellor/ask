@@ -92,9 +92,9 @@ otherwise                              → non-interactive
 
 Override with `--interactive` (force TUI) or `--batch` (force non-interactive).
 
-## Message argument
+## Message input
 
-A message may be provided as a positional argument:
+A message may be provided as a single positional argument:
 
 ```
 ask "explain this codebase"
@@ -107,9 +107,14 @@ Use `--` to disambiguate a message that starts with `-`:
 ask -- "--help is a confusing flag name"
 ```
 
-Whether output goes to stdout vs the TUI is determined by mode, not by how the message is provided.
+Or piped via stdin when running non-interactive:
 
-stdin as a message source is not in scope.
+```
+echo "explain this codebase" | ask
+echo "what did you find?" | ask --session <id>
+```
+
+Whether output goes to stdout vs the TUI is determined by mode, not by how the message is provided.
 
 ## Session flags
 

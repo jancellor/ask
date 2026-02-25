@@ -60,11 +60,12 @@ Or create `~/.config/ask/config.json`:
 Run:
 
 ```bash
-ask                  # Interactive mode
-ask <msg>            # Batch mode
-ask --continue       # Continue most recent session
-ask --session <uuid> # Start or continue a specific session
-ask --help           # More options
+ask                          # Interactive mode
+ask "<msg>"                  # Batch mode (single positional arg)
+cat file.ts | ask "explain"  # Pipe context, ask a question
+ask --continue               # Continue most recent session
+ask --session <uuid>         # Start or continue a specific session
+ask --help                   # More options
 ```
 
 ## Architecture

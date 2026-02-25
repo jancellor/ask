@@ -11,7 +11,7 @@ async function main(): Promise<void> {
     .option('-c, --continue', 'continue the most recent session')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
-    .argument('[message...]');
+    .argument('[message]');
   program.parse(process.argv);
   const opts = program.opts<{
     session?: string;
@@ -20,7 +20,7 @@ async function main(): Promise<void> {
     interactive?: boolean;
     batch?: boolean;
   }>();
-  const message = (program.args as string[]).join(' ') || undefined;
+  const message = program.args[0] as string | undefined;
 
   const mode: 'auto' | 'interactive' | 'batch' =
     opts.interactive && opts.batch
@@ -36,7 +36,6 @@ async function main(): Promise<void> {
     continueSession: opts.continue,
   };
 
-  // Determine mode: explicit flag > auto-detect from TTY + message presence
   const useInteractive =
     mode == 'interactive' ||
     (mode == 'auto' && process.stdin.isTTY && message === undefined);
@@ -44,7 +43,7 @@ async function main(): Promise<void> {
   if (useInteractive) {
     await runTui(runOptions);
   } else {
-    await runCli(message ?? '', runOptions);
+    await runCli(message, runOptions);
   }
 }
 

@@ -7,12 +7,11 @@ import {
   type ToolSet,
   type TypedToolCall,
 } from 'ai';
-import { randomUUID } from 'crypto';
 import { ConfigReader } from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import type { AskMessage } from './messages.js';
 import { createOpenAISubscriptionFetch } from './openai-subscription-fetch.js';
-import { Session } from './session.js';
+import { Session, type SessionCreateOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
@@ -22,7 +21,10 @@ export type { AskMessage, AskMessageMeta } from './messages.js';
 export interface AgentListener {
   onMessages?(messages: AskMessage[]): void | Promise<void>;
   onClear?(): void | Promise<void>;
+  onFork?(): void | Promise<void>;
 }
+
+export type AgentCreateOptions = SessionCreateOptions;
 
 export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
@@ -56,11 +58,7 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  static async create(options: {
-    sessionId?: string;
-    continueSession?: boolean;
-    fork?: boolean;
-  }): Promise<Agent> {
+  static async create(options: AgentCreateOptions): Promise<Agent> {
     const session = await Session.create(options);
     return new Agent(session);
   }
@@ -132,8 +130,17 @@ export class Agent {
     await this.cancelAll();
     await this.serializer.submit(async () => {
       beforeClear?.();
-      this.session = await Session.create({ sessionId: randomUUID() });
+      this.session = await this.session.cleared();
       await Promise.all(this.listeners.map((l) => l.onClear?.()));
+    });
+  }
+
+  async fork(sessionId?: string, beforeFork?: () => void): Promise<void> {
+    await this.cancelAll();
+    await this.serializer.submit(async () => {
+      beforeFork?.();
+      await this.session.fork(sessionId);
+      await Promise.all(this.listeners.map((l) => l.onFork?.()));
     });
   }
 
@@ -141,8 +148,8 @@ export class Agent {
     newMessages: ModelMessage[],
     uiHidden = false,
   ): Promise<void> {
-    const enriched = await this.session.append(newMessages, uiHidden);
-    await Promise.all(this.listeners.map((l) => l.onMessages?.(enriched)));
+    const appended = await this.session.append(newMessages, uiHidden);
+    await Promise.all(this.listeners.map((l) => l.onMessages?.(appended)));
   }
 
   private async addInitialMessages() {

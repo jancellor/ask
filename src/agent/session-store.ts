@@ -8,13 +8,39 @@ import {
 } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
+import { z } from 'zod';
 import type { AskMessage } from './messages.js';
 
-export class SessionStore {
-  private readonly sessionPath: string;
+export interface SessionStoreCreateOptions {
+  session?: string;
+  continue?: true;
+  fork?: true | string;
+}
 
-  constructor(sessionId: string) {
+export class SessionStore {
+  readonly sessionId: string;
+  private sessionPath: string;
+
+  private constructor(sessionId: string) {
+    this.sessionId = sessionId;
     this.sessionPath = SessionStore.sessionPathFor(sessionId);
+  }
+
+  static async create(
+    options: SessionStoreCreateOptions,
+  ): Promise<SessionStore> {
+    const sourceSessionId = z
+      .uuid()
+      .parse(
+        options.session ??
+          (options.continue && (await SessionStore.lastSessionId())) ??
+          randomUUID(),
+      );
+    const source = new SessionStore(sourceSessionId);
+
+    if (!options.fork) return source;
+    return source.forked(options.fork === true ? undefined : options.fork);
   }
 
   static sessionsDir(): string {
@@ -25,48 +51,10 @@ export class SessionStore {
     return join(SessionStore.sessionsDir(), `${sessionId}.jsonl`);
   }
 
-  static async fork(fromSessionId: string, toSessionId: string): Promise<void> {
-    await mkdir(SessionStore.sessionsDir(), { recursive: true });
-    await copyFile(
-      SessionStore.sessionPathFor(fromSessionId),
-      SessionStore.sessionPathFor(toSessionId),
-    );
-  }
-
-  async load(): Promise<AskMessage[]> {
-    const content = await readFile(this.sessionPath, 'utf-8').catch(
-      (error: unknown) => {
-        if (
-          error &&
-          typeof error === 'object' &&
-          'code' in error &&
-          error.code === 'ENOENT'
-        ) {
-          return '';
-        }
-        throw error;
-      },
-    );
-    return content
-      .split('\n')
-      .filter((line) => line.length > 0)
-      .map((line) => JSON.parse(line) as AskMessage);
-  }
-
-  async append(messages: AskMessage[]): Promise<void> {
-    await mkdir(SessionStore.sessionsDir(), { recursive: true });
-    const lines = messages.map((message) => JSON.stringify(message) + '\n');
-    await appendFile(this.sessionPath, lines.join(''), 'utf-8');
-  }
-
   static async lastSessionId(): Promise<string | null> {
     const dir = SessionStore.sessionsDir();
-    let entries: string[];
-    try {
-      entries = await readdir(dir);
-    } catch {
-      return null;
-    }
+    const entries =
+      (await SessionStore.ignoreMissing(() => readdir(dir))) ?? [];
 
     const jsonlFiles = entries.filter((f) => f.endsWith('.jsonl'));
     if (jsonlFiles.length === 0) return null;
@@ -79,5 +67,42 @@ export class SessionStore {
       }
     }
     return latest?.id ?? null;
+  }
+
+  private static async ignoreMissing<T>(
+    op: () => Promise<T>,
+  ): Promise<T | undefined> {
+    try {
+      return await op();
+    } catch (error: any) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
+
+  async read(): Promise<AskMessage[]> {
+    const content =
+      (await SessionStore.ignoreMissing(() =>
+        readFile(this.sessionPath, 'utf-8'),
+      )) ?? '';
+    return content
+      .split('\n')
+      .filter((line) => line.length > 0)
+      .map((line) => JSON.parse(line) as AskMessage);
+  }
+
+  async append(messages: AskMessage[]): Promise<void> {
+    await mkdir(SessionStore.sessionsDir(), { recursive: true });
+    const lines = messages.map((message) => JSON.stringify(message) + '\n');
+    await appendFile(this.sessionPath, lines.join(''), 'utf-8');
+  }
+
+  async forked(sessionId?: string): Promise<SessionStore> {
+    const resolvedSessionId = z.uuid().parse(sessionId ?? randomUUID());
+    const forked = new SessionStore(resolvedSessionId);
+    await mkdir(SessionStore.sessionsDir(), { recursive: true });
+    await SessionStore.ignoreMissing(() =>
+      copyFile(this.sessionPath, forked.sessionPath),
+    );
+    return forked;
   }
 }

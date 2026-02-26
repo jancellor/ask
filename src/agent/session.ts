@@ -1,37 +1,44 @@
 import { randomUUID } from 'crypto';
-import { z } from 'zod';
 import type { AskMessage } from './messages.js';
-import { SessionStore } from './session-store.js';
+import {
+  SessionStore,
+  type SessionStoreCreateOptions,
+} from './session-store.js';
 import type { ModelMessage } from 'ai';
 
+export type SessionCreateOptions = SessionStoreCreateOptions;
+
 export class Session {
-  sessionId: string;
-  private readonly store: SessionStore;
-  private messagesById = new Map<string, AskMessage>();
+  private sessionStore: SessionStore;
+  private messagesById;
   private headId: string | null = null;
 
-  private constructor(sessionId: string) {
-    this.sessionId = sessionId;
-    this.store = new SessionStore(sessionId);
+  private constructor(
+    messagesById: Map<string, AskMessage>,
+    headId: string | null,
+    sessionStore: SessionStore,
+  ) {
+    this.messagesById = messagesById;
+    this.headId = headId;
+    this.sessionStore = sessionStore;
   }
 
-  static async create(options: {
-    sessionId?: string;
-    continueSession?: boolean;
-    fork?: boolean;
-  }): Promise<Session> {
-    if (options.fork) {
-      throw new Error('forking is not yet supported');
+  static async create(options: SessionCreateOptions): Promise<Session> {
+    const sessionStore = await SessionStore.create(options);
+
+    const messagesById = new Map<string, AskMessage>();
+    let headId = null;
+    for (const message of await sessionStore.read()) {
+      const id = message._meta.id;
+      messagesById.set(id, message);
+      headId = id;
     }
 
-    const sessionId =
-      options.sessionId ??
-      (options.continueSession && (await SessionStore.lastSessionId())) ??
-      randomUUID();
+    return new Session(messagesById, headId, sessionStore);
+  }
 
-    const session = new Session(z.uuid().parse(sessionId));
-    await session.load();
-    return session;
+  get sessionId(): string {
+    return this.sessionStore.sessionId;
   }
 
   get messages(): AskMessage[] {
@@ -52,30 +59,32 @@ export class Session {
     return messages.reverse();
   }
 
-  private async load(): Promise<void> {
-    this.messagesById.clear();
-    this.headId = null;
-    for (const message of await this.store.load()) {
-      const id = message._meta.id;
-      this.messagesById.set(id, message);
-      this.headId = id;
-    }
-  }
-
   async append(
     messages: ModelMessage[],
     uiHidden = false,
   ): Promise<AskMessage[]> {
     if (messages.length === 0) return [];
 
-    const appended = this.enrich(messages, uiHidden);
-    await this.store.append(appended);
+    const appended = this.withMeta(messages, uiHidden);
+    await this.sessionStore.append(appended);
     for (const message of appended) {
       this.messagesById.set(message._meta.id, message);
     }
-    const last = appended[appended.length - 1];
+    const last = appended.at(-1)
     if (last) this.headId = last._meta.id;
     return appended;
+  }
+
+  async cleared(): Promise<Session> {
+    return new Session(
+      new Map<string, AskMessage>(),
+      null,
+      await SessionStore.create({}),
+    );
+  }
+
+  async fork(sessionId: string | undefined) {
+    this.sessionStore = await this.sessionStore.forked(sessionId);
   }
 
   rewind(headId: string | null): void {
@@ -85,7 +94,7 @@ export class Session {
     this.headId = headId;
   }
 
-  private enrich(messages: ModelMessage[], uiHidden: boolean): AskMessage[] {
+  private withMeta(messages: ModelMessage[], uiHidden: boolean): AskMessage[] {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
     const initialParent = this.headId;

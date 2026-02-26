@@ -7,20 +7,19 @@ async function main(): Promise<void> {
   const program = new Command()
     .name('ask')
     .allowExcessArguments(false)
-    .option('-s, --session <id>', 'use new or existing session')
+    .option('-s, --session <id>', 'use a specific session ID')
     .option('-c, --continue', 'continue the most recent session')
-    .option('-f, --fork', 'fork from selected/recent session into a new session')
+    .option('-f, --fork [id]', 'fork into a new session')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
     .argument('[message]');
   program.parse(process.argv);
   const opts = program.opts<{
     session?: string;
-    continue?: boolean;
-    fork?: boolean;
-    model?: string;
-    interactive?: boolean;
-    batch?: boolean;
+    continue?: true;
+    fork?: true | string;
+    interactive?: true;
+    batch?: true;
   }>();
   const message = program.args[0] as string | undefined;
 
@@ -34,8 +33,8 @@ async function main(): Promise<void> {
           : 'auto';
 
   const runOptions = {
-    sessionId: opts.session,
-    continueSession: opts.continue,
+    session: opts.session,
+    continue: opts.continue,
     fork: opts.fork,
   };
 

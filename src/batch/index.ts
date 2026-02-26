@@ -1,12 +1,12 @@
-import { Agent, type AskMessage } from '../agent/index.js';
+import {
+  Agent,
+  type AgentCreateOptions,
+  type AskMessage,
+} from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 
-type RunBatchOptions = {
-  sessionId?: string;
-  continueSession?: boolean;
-  fork?: boolean;
-};
+type RunBatchOptions = AgentCreateOptions;
 
 async function readStdin(): Promise<string> {
   let data = '';

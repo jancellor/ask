@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 import { Command } from 'commander';
 import { runTui } from './tui/index.js';
 import { runBatch } from './batch/index.js';
@@ -7,16 +7,18 @@ async function main(): Promise<void> {
   const program = new Command()
     .name('ask')
     .allowExcessArguments(false)
-    .option('-s, --session <id>', 'use a specific session ID')
-    .option('-c, --continue', 'continue the most recent session')
-    .option('-f, --fork [id]', 'fork into a new session')
+    .option('-r, --resume [id]', 'read from given (or last) session')
+    .option('-f, --fork [id]', 'write to given (or random) session')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
+    .addHelpText(
+      'after',
+      '\nUse -- before message if ambiguous (eg ask -r -- "follow up question")',
+    )
     .argument('[message]');
   program.parse(process.argv);
   const opts = program.opts<{
-    session?: string;
-    continue?: true;
+    resume?: string | true;
     fork?: true | string;
     interactive?: true;
     batch?: true;
@@ -32,24 +34,14 @@ async function main(): Promise<void> {
           ? 'batch'
           : 'auto';
 
-  const runOptions = {
-    session: opts.session,
-    continue: opts.continue,
-    fork: opts.fork,
-  };
-
   const useInteractive =
     mode == 'interactive' ||
     (mode == 'auto' && process.stdin.isTTY && message === undefined);
 
-  if (useInteractive) {
-    await runTui(runOptions);
-  } else {
-    await runBatch(message, runOptions);
-  }
+  useInteractive ? await runTui(opts) : await runBatch(message, opts);
 }
 
 main().catch((error) => {
-  console.error('Error:', error);
+  console.error(String(error));
   process.exit(1);
 });

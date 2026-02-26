@@ -2,7 +2,7 @@
 
 A minimal coding agent.
 
-![Ask demo](demo/demo.gif)
+![Ask demo](https://raw.githubusercontent.com/jancellor/ask/main/demo/demo.gif)
 
 ## Why
 
@@ -24,19 +24,27 @@ Usage is controlled by the system prompt.
 ## Features
 
 - **Single tool.** One `execute` tool runs bash commands. No specialized file-editing, search, or filesystem tools.
-- **Interactive and scriptable.** Terminal UI with markdown rendering and streaming output, or `ask "msg"` for batch mode use.
+- **Interactive and scriptable.** Terminal UI with markdown rendering, or `ask "msg"` for batch mode use.
 - **Session persistence.** Conversations are saved as JSONL to `~/.ask/sessions/`.
 - **Subagent delegation.** An agent can simply invoke `ask "msg"` to isolate context or run in parallel.
 - **Project-level instructions.** `AGENTS.md` files provide project-specific context. `SKILL.md` files describe reusable capabilities.
 
 ## Setup
 
+Install from npm:
+
+```bash
+npm install -g @jancellor/ask
+```
+
+Or build from source:
+
 ```bash
 git clone https://github.com/jancellor/ask.git
 cd ask
-bun install
-bun link
-# npm/node should work if you update the bin shebang
+npm install
+npm run build
+npm link
 ```
 
 Configure a provider:
@@ -61,12 +69,14 @@ Run:
 
 ```bash
 ask                          # Interactive mode
-ask "<msg>"                  # Batch mode (single positional arg)
+ask "refactor"               # Batch mode (single positional arg)
 cat file.ts | ask "explain"  # Pipe context, ask a question
-ask --continue               # Continue most recent session
-ask --fork --continue        # Fork most recent session into a new session
-ask --session <uuid>         # Start or continue a specific session
-ask --session <uuid> --fork  # Fork a specific session into a new session
+ask --resume                 # Resume most recent session (interactive)
+ask --resume <uuid>          # Resume a specific session
+ask --resume -- "refactor"   # Resume most recent session in batch mode
+ask --fork                   # Fork most recent session into a new session (interactive)
+ask --fork -- "try this"     # Fork most recent session in batch mode
+ask --resume <uuid> --fork   # Fork a specific session into a new session
 ask --help                   # More options
 ```
 

@@ -13,8 +13,7 @@ import { z } from 'zod';
 import type { AskMessage } from './messages.js';
 
 export interface SessionStoreCreateOptions {
-  session?: string;
-  continue?: true;
+  resume?: string | true;
   fork?: true | string;
 }
 
@@ -30,13 +29,15 @@ export class SessionStore {
   static async create(
     options: SessionStoreCreateOptions,
   ): Promise<SessionStore> {
-    const sourceSessionId = z
-      .uuid()
-      .parse(
-        options.session ??
-          (options.continue && (await SessionStore.lastSessionId())) ??
-          randomUUID(),
-      );
+    const fallbackLastSessionId =
+      options.resume === true || options.fork !== undefined
+        ? await SessionStore.lastSessionId()
+        : null;
+    const sourceSessionId = SessionStore.parseUuid(
+      (typeof options.resume === 'string' ? options.resume : undefined) ??
+        fallbackLastSessionId ??
+        randomUUID(),
+    );
     const source = new SessionStore(sourceSessionId);
 
     if (!options.fork) return source;
@@ -69,6 +70,12 @@ export class SessionStore {
     return latest?.id ?? null;
   }
 
+  private static parseUuid(arg: string): string {
+    const result = z.uuid().safeParse(arg);
+    if (result.success) return result.data;
+    throw new Error(`invalid session UUID: ${arg}`);
+  }
+
   private static async ignoreMissing<T>(
     op: () => Promise<T>,
   ): Promise<T | undefined> {
@@ -97,7 +104,7 @@ export class SessionStore {
   }
 
   async forked(sessionId?: string): Promise<SessionStore> {
-    const resolvedSessionId = z.uuid().parse(sessionId ?? randomUUID());
+    const resolvedSessionId = SessionStore.parseUuid(sessionId ?? randomUUID());
     const forked = new SessionStore(resolvedSessionId);
     await mkdir(SessionStore.sessionsDir(), { recursive: true });
     await SessionStore.ignoreMissing(() =>

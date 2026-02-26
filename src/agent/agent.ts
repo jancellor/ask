@@ -10,7 +10,6 @@ import {
 import { ConfigReader } from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import type { AskMessage } from './messages.js';
-import { createOpenAISubscriptionFetch } from './openai-subscription-fetch.js';
 import { Session, type SessionCreateOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
@@ -51,7 +50,6 @@ export class Agent {
       name: 'ask',
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
-      fetch: createOpenAISubscriptionFetch(),
     });
     this.languageModel = provider(config.model);
     this.systemPrompt = new SystemPrompt().build();

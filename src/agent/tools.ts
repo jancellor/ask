@@ -15,7 +15,7 @@ export class Tools {
       case this.executeTool.name:
         return this.executeTool.execute(args, signal);
       default:
-        throw new Error(`Unknown tool: ${name}`);
+        throw new Error(`unknown tool: ${name}`);
     }
   }
 }

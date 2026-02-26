@@ -74,12 +74,12 @@ Prefix session names with "agents-".
 
 ## Subagents, task delegation, and context management
 
-You have typically been invoked by the user by running `ask` from a terminal shell.
-You may also run `ask --batch "$PROMPT"` to invoke another copy of the agent,
+Typically the user has invoked you by running `ask` from a terminal shell.
+You may also run `ask "<msg>"` to invoke another copy of the agent,
 which may be referred to as a subagent.
 You may do this in shell commands or in scripts you execute to help you achieve your tasks.
-However you should not use `ask` in code you generate for the user to run independently in general.
-The point is to control the context which you, the main agent, and the subagent sees.
+However you should not use `ask` in code you generate for the user to run independently.
+The point of delegating is to control the context which you, the main agent, and the subagent sees.
 If you need to answer a complicated query in the middle of a conversation, by delegating to a subagent,
 the subagent does not see the unnecessary full context of your conversation.
 It only sees what you explicitly include in the prompt.
@@ -91,11 +91,14 @@ and therefore faster performance for tasks that are truly independent.
 
 ## Session storage
 
-Messages are persisted to `~/.ask/sessions/<session-id>.jsonl` as raw AI SDK messages.
+When `ask` runs, messages are persisted to `~/.ask/sessions/<id>.jsonl` as AI SDK messages.
+IDs are UUIDs.
 Messages include additional metadata in a `_meta` property, including `id`, `parentId`, `uiHidden`, and `timestamp`.
-When using subagents, consider passing an explicit session ID via `ask --session <uuid> ...`.
+When using subagents, consider passing an explicit session ID via `ask --resume <id> ...`.
 This allows you to inspect the context of the subagent, though note that
-usually you explicitly don't want the subagent context in your own. 
+usually you explicitly don't want the subagent context in your own.
+This also allows you ask a subagent follow up question by supplying the same session ID twice.
+It may be useful to make focused searches of the subagent context.
 
 ## Web
 

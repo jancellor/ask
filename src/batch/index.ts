@@ -8,14 +8,6 @@ import type { TextPart } from 'ai';
 
 type RunBatchOptions = AgentCreateOptions;
 
-async function readStdin(): Promise<string> {
-  let data = '';
-  for await (const chunk of process.stdin) {
-    data += String(chunk);
-  }
-  return data;
-}
-
 export async function runBatch(
   argument: string | undefined,
   options: RunBatchOptions,
@@ -26,7 +18,7 @@ export async function runBatch(
     throw new Error('no message provided (pass [message] or pipe stdin)');
 
   const agent = await Agent.create(options);
-  console.error(`[Session: ${agent.sessionId}]`);
+  // console.error(`[Session: ${agent.sessionId}]`);
 
   const shutdownManager = new ShutdownManager(async () => {
     await agent.cancelAll();
@@ -53,6 +45,14 @@ export async function runBatch(
   // Extract and output the final assistant response
   const response = extractFinalResponse(agent.messages);
   console.log(response);
+}
+
+async function readStdin(): Promise<string> {
+  let data = '';
+  for await (const chunk of process.stdin) {
+    data += String(chunk);
+  }
+  return data;
 }
 
 function formatToolCall(toolName: string, input: unknown): string {

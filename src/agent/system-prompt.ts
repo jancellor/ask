@@ -7,7 +7,7 @@ const __dirname = dirname(__filename);
 
 export class SystemPrompt {
   build(): string {
-    const promptPath = join(__dirname, 'system-prompt.md');
+    const promptPath = join(__dirname, '..', '..', 'assets', 'system-prompt.md');
     return readFileSync(promptPath, 'utf-8');
   }
 }

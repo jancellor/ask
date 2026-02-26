@@ -64,7 +64,9 @@ ask                          # Interactive mode
 ask "<msg>"                  # Batch mode (single positional arg)
 cat file.ts | ask "explain"  # Pipe context, ask a question
 ask --continue               # Continue most recent session
+ask --fork --continue        # Fork most recent session into a new session
 ask --session <uuid>         # Start or continue a specific session
+ask --session <uuid> --fork  # Fork a specific session into a new session
 ask --help                   # More options
 ```
 

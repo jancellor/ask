@@ -5,6 +5,7 @@ import type { TextPart } from 'ai';
 type RunBatchOptions = {
   sessionId?: string;
   continueSession?: boolean;
+  fork?: boolean;
 };
 
 async function readStdin(): Promise<string> {
@@ -17,11 +18,12 @@ async function readStdin(): Promise<string> {
 
 export async function runBatch(
   argument: string | undefined,
-  options: RunBatchOptions = {},
+  options: RunBatchOptions,
 ): Promise<void> {
   const stdin = !process.stdin.isTTY ? await readStdin() : undefined;
   const message = [stdin, argument].filter(Boolean).join('\n\n');
-  if (!message) throw new Error('no message provided (pass [message] or pipe stdin)');
+  if (!message)
+    throw new Error('no message provided (pass [message] or pipe stdin)');
 
   const agent = await Agent.create(options);
   console.error(`[Session: ${agent.sessionId}]`);

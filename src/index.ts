@@ -9,6 +9,7 @@ async function main(): Promise<void> {
     .allowExcessArguments(false)
     .option('-s, --session <id>', 'use new or existing session')
     .option('-c, --continue', 'continue the most recent session')
+    .option('-f, --fork', 'fork from selected/recent session into a new session')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
     .argument('[message]');
@@ -16,6 +17,7 @@ async function main(): Promise<void> {
   const opts = program.opts<{
     session?: string;
     continue?: boolean;
+    fork?: boolean;
     model?: string;
     interactive?: boolean;
     batch?: boolean;
@@ -34,6 +36,7 @@ async function main(): Promise<void> {
   const runOptions = {
     sessionId: opts.session,
     continueSession: opts.continue,
+    fork: opts.fork,
   };
 
   const useInteractive =

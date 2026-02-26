@@ -126,6 +126,11 @@ Whether output goes to stdout vs the TUI is determined by mode, not by how the m
 
 `--continue` (shorthand `-c`): loads the most recently modified session file. Intended for interactive follow-up in batch mode — not recommended in scripts that run concurrently.
 
+`--fork` (shorthand `-f`): copies a source session into a new session and runs against that new session ID. Source selection priority:
+
+1. `--session <id>` when provided
+2. Otherwise the most recently modified session
+
 The main agent typically pre-assigns session IDs for subagents:
 
 ```bash
@@ -187,6 +192,7 @@ ask [OPTIONS] [MESSAGE]
 
   --session, -s <id>   Load and continue a session (UUID)
   --continue, -c       Continue the most recent session
+  --fork, -f           Fork from selected/recent session into a new session
   --interactive        Force TUI mode
   --batch              Force non-interactive mode
   --model <id>         Override configured model

@@ -7,9 +7,10 @@ import { App } from './app.js';
 type RunTuiOptions = {
   sessionId?: string;
   continueSession?: boolean;
+  fork?: boolean;
 };
 
-export async function runTui(options: RunTuiOptions = {}): Promise<void> {
+export async function runTui(options: RunTuiOptions): Promise<void> {
   const agent = await Agent.create(options);
 
   const shutdownManager = new ShutdownManager(async () => {

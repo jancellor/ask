@@ -50,24 +50,104 @@ npm link
 Configure a provider:
 
 ```bash
-export ASK_API_KEY="your-api-key"
-export ASK_MODEL="anthropic/claude-sonnet-4.6"
-export ASK_BASE_URL="https://openrouter.ai/api/v1"
+ask --config --provider anthropic --model claude-opus-4-6
 ```
 
-Or create `~/.config/ask/config.json`:
+That saves the current config and creates `~/.config/ask/config.json`, eg:
 
 ```json
 {
-  "api_key": "your-api-key",
-  "model": "anthropic/claude-sonnet-4.6",
-  "base_url": "https://openrouter.ai/api/v1"
+  "currentProvider": "anthropic",
+  "providers": {
+    "anthropic": {
+      "currentModel": "claude-opus-4-6"
+    }
+  }
 }
 ```
+
+Store secrets separately in `~/.config/ask/config.secrets.json`:
+
+```json
+{
+  "anthropic": {
+    "apiKey": "your-api-key"
+  }
+}
+```
+
+For OpenAI-compatible endpoints, configure the provider explicitly:
+
+```json
+{
+  "currentProvider": "openrouter",
+  "providers": {
+    "openrouter": {
+      "sdkProvider": "openai-compatible",
+      "providerOptions": {
+        "name": "openrouter",
+        "baseURL": "https://openrouter.ai/api/v1"
+      },
+      "currentModel": "anthropic/claude-sonnet-4.6"
+    }
+  }
+}
+```
+
+Ask uses the [AI SDK](https://ai-sdk.dev/docs/reference/ai-sdk-core), and this
+config is designed to map directly onto that runtime model. You select a
+configured provider, then a model within that provider, and optionally a
+variant within that model. A configured provider can also override
+[`sdkProvider`](https://ai-sdk.dev/docs/providers) so one named config entry can
+target a different SDK provider family, such as `openai-compatible`.
+`providerOptions` live on the provider and are passed to the SDK provider
+factory, while auth stays separate in `config.secrets.json`. `generateOptions`
+can be set globally and at the provider, model, and variant levels; at runtime
+they are merged in that order and passed through as the options object for
+[`generateText`](https://ai-sdk.dev/docs/ai-sdk-core/generating-text).
+
+For example, you can add a Claude reasoning-effort variant with per-variant
+Anthropic options:
+
+```json
+{
+  "currentProvider": "anthropic",
+  "providers": {
+    "anthropic": {
+      "currentModel": "claude-opus-4-6",
+      "models": {
+        "claude-opus-4-6": {
+          "currentVariant": "balanced",
+          "variants": {
+            "balanced": {
+              "generateOptions": {
+                "providerOptions": {
+                  "anthropic": {
+                    "effort": "medium"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Then use `ask -v balanced` to select that variant for a run.
+
+Use `ask -c` to print the resolved config. If you pass `-p`, `-m`, or `-v`
+with `-c`, those values are saved as the new current selection. Without `-c`,
+they apply only to the current run.
 
 Run:
 
 ```bash
+ask -c                       # Show current resolved config
+ask -c -p openai -m gpt-5    # Update saved provider/model
+ask -c -v                    # Clear the saved variant
 ask                          # Interactive mode
 ask "refactor"               # Batch mode (single positional arg)
 cat file.ts | ask "explain"  # Pipe context, ask a question

@@ -1,9 +1,6 @@
 import { randomUUID } from 'crypto';
 import type { AskMessage } from './messages.js';
-import {
-  SessionStore,
-  type SessionStoreOptions,
-} from './session-store.js';
+import { SessionStore, type SessionStoreOptions } from './session-store.js';
 import type { ModelMessage } from 'ai';
 
 export type SessionOptions = SessionStoreOptions;
@@ -70,7 +67,7 @@ export class Session {
     for (const message of appended) {
       this.messagesById.set(message._meta.id, message);
     }
-    const last = appended.at(-1)
+    const last = appended.at(-1);
     if (last) this.headId = last._meta.id;
     return appended;
   }

@@ -1,5 +1,5 @@
-import {AgentsPrompt} from './agents-prompt.js';
-import {SkillsPrompt} from './skills-prompt.js';
+import { AgentsPrompt } from './agents-prompt.js';
+import { SkillsPrompt } from './skills-prompt.js';
 
 export class InitPrompt {
   async build(): Promise<string> {

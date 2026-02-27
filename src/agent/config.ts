@@ -59,8 +59,10 @@ export class ConfigReader {
 
     const sdkProvider = providerConfig.sdkProvider ?? provider;
     const sdkModel = modelConfig.sdkModel ?? model;
-    const providerOptions: ProviderOptions = providerConfig.providerOptions ?? {};
-    const providerSecretOptions: ProviderSecretOptions = secrets[provider] ?? {};
+    const providerOptions: ProviderOptions =
+      providerConfig.providerOptions ?? {};
+    const providerSecretOptions: ProviderSecretOptions =
+      secrets[provider] ?? {};
 
     if (configOptions.saveAsCurrent) {
       await this.saveAsCurrent(config, provider, model, variant);

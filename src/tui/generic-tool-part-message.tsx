@@ -3,7 +3,11 @@ import { Box, Text } from 'ink';
 import { SpinnerMessage } from './spinner-message.js';
 import type { ToolPartMessageRenderProps } from './tool-part-message.js';
 
-export function GenericToolPartMessage({ toolName, input, output }: ToolPartMessageRenderProps) {
+export function GenericToolPartMessage({
+  toolName,
+  input,
+  output,
+}: ToolPartMessageRenderProps) {
   return (
     <Box flexDirection="column">
       {toolName ? (

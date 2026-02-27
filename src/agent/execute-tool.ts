@@ -8,9 +8,7 @@ const DEFAULT_TIMEOUT_S = 60;
 const TERMINATION_GRACE_MS = 5000;
 
 const executeInputSchema = z.object({
-  command: z
-    .string()
-    .describe('The shell command to execute using `bash -c`'),
+  command: z.string().describe('The shell command to execute using `bash -c`'),
 });
 
 export type ExecuteToolOutput = {
@@ -35,7 +33,10 @@ export class ExecuteTool {
     });
   }
 
-  async execute(input: unknown, signal: AbortSignal): Promise<ExecuteToolOutput> {
+  async execute(
+    input: unknown,
+    signal: AbortSignal,
+  ): Promise<ExecuteToolOutput> {
     const timeoutSignal = AbortSignal.timeout(DEFAULT_TIMEOUT_S * 1000);
     const combinedSignal = AbortSignal.any([signal, timeoutSignal]);
     if (combinedSignal.aborted) {

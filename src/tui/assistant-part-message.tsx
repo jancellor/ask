@@ -3,7 +3,13 @@ import { Box, Text } from 'ink';
 import { ABORTED_MESSAGE, ERROR_MESSAGE } from '../agent/index.js';
 import { parseMarkdown } from './markdown.js';
 
-export function AssistantPartMessage({ text, dim }: { text: string; dim?: boolean }) {
+export function AssistantPartMessage({
+  text,
+  dim,
+}: {
+  text: string;
+  dim?: boolean;
+}) {
   const error = [ABORTED_MESSAGE, ERROR_MESSAGE].some((e) =>
     text.startsWith(e),
   );

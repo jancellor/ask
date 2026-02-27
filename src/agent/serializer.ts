@@ -4,22 +4,20 @@ export class Serializer {
 
   async submit(task: () => Promise<void>): Promise<void> {
     const generation = this.generation;
-    return this.tail = (async () => {
+    return (this.tail = (async () => {
       try {
         await this.tail;
-      } catch (ignored) {
-      }
+      } catch (ignored) {}
       if (this.generation === generation) {
         await task();
       }
-    })();
+    })());
   }
 
   async cancelPending(): Promise<void> {
     this.generation += 1;
     try {
       await this.tail;
-    } catch (ignored) {
-    }
+    } catch (ignored) {}
   }
 }

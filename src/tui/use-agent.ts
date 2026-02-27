@@ -33,7 +33,10 @@ export function useAgent(agent: Agent): UseAgentResult {
 
   const abort = useCallback(() => agent.abort(), [agent]);
 
-  const clear = useCallback((beforeClear?: () => void) => agent.clear(beforeClear), [agent]);
+  const clear = useCallback(
+    (beforeClear?: () => void) => agent.clear(beforeClear),
+    [agent],
+  );
 
   return {
     messages,

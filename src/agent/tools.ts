@@ -10,7 +10,11 @@ export class Tools {
     };
   }
 
-  execute(name: string, args: unknown, signal: AbortSignal): Promise<JSONValue> {
+  execute(
+    name: string,
+    args: unknown,
+    signal: AbortSignal,
+  ): Promise<JSONValue> {
     switch (name) {
       case this.executeTool.name:
         return this.executeTool.execute(args, signal);

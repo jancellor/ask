@@ -12,7 +12,12 @@ type InputProps = {
   onRequestShutdown: () => void;
 };
 
-export function Input({ onSubmit, onAbort, onClear, onRequestShutdown }: InputProps) {
+export function Input({
+  onSubmit,
+  onAbort,
+  onClear,
+  onRequestShutdown,
+}: InputProps) {
   const {
     value,
     beforeCursor,

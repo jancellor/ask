@@ -3,7 +3,10 @@ import { Box, Text } from 'ink';
 import { SpinnerMessage } from './spinner-message.js';
 import type { ToolPartMessageRenderProps } from './tool-part-message.js';
 
-export function ExecuteToolPartMessage({ input, output }: ToolPartMessageRenderProps) {
+export function ExecuteToolPartMessage({
+  input,
+  output,
+}: ToolPartMessageRenderProps) {
   const displayInput = input == null ? null : formatExecuteToolInput(input);
   const parsed = output == null ? null : parseExecuteToolOutput(output);
 
@@ -23,7 +26,9 @@ export function ExecuteToolPartMessage({ input, output }: ToolPartMessageRenderP
       ) : null}
       {parsed?.stderr ? (
         <>
-          <Text color="red" dimColor>{parsed.stderr}</Text>
+          <Text color="red" dimColor>
+            {parsed.stderr}
+          </Text>
           <Text> </Text>
         </>
       ) : null}
@@ -41,7 +46,9 @@ export function ExecuteToolPartMessage({ input, output }: ToolPartMessageRenderP
       ) : null}
       {parsed?.signal ? (
         <>
-          <Text color="red" dimColor>{parsed.signal}</Text>
+          <Text color="red" dimColor>
+            {parsed.signal}
+          </Text>
           <Text> </Text>
         </>
       ) : null}

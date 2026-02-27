@@ -27,9 +27,7 @@ export class SessionStore {
     this.sessionPath = SessionStore.sessionPathFor(sessionId);
   }
 
-  static async create(
-    options: SessionStoreOptions,
-  ): Promise<SessionStore> {
+  static async create(options: SessionStoreOptions): Promise<SessionStore> {
     const fallbackLastSessionId =
       options.resume === true || options.fork !== undefined
         ? await SessionStore.lastSessionId()
@@ -78,9 +76,7 @@ export class SessionStore {
 
   async read(): Promise<AskMessage[]> {
     const content =
-      (await ignoreMissing(() =>
-        readFile(this.sessionPath, 'utf-8'),
-      )) ?? '';
+      (await ignoreMissing(() => readFile(this.sessionPath, 'utf-8'))) ?? '';
     return content
       .split('\n')
       .filter((line) => line.length > 0)
@@ -97,9 +93,7 @@ export class SessionStore {
     const resolvedSessionId = SessionStore.parseUuid(sessionId ?? randomUUID());
     const forked = new SessionStore(resolvedSessionId);
     await mkdir(SessionStore.sessionsDir(), { recursive: true });
-    await ignoreMissing(() =>
-      copyFile(this.sessionPath, forked.sessionPath),
-    );
+    await ignoreMissing(() => copyFile(this.sessionPath, forked.sessionPath));
     return forked;
   }
 }

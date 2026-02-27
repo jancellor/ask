@@ -14,7 +14,12 @@ interface MessagesProps {
   variant: string | null;
 }
 
-export function Messages({ messages: rawMessages, model, provider, variant }: MessagesProps) {
+export function Messages({
+  messages: rawMessages,
+  model,
+  provider,
+  variant,
+}: MessagesProps) {
   const messages = rawMessages.filter((m) => !m._meta?.uiHidden);
   const toolResults = buildToolResultsMap(messages);
 
@@ -66,7 +71,8 @@ export function Messages({ messages: rawMessages, model, provider, variant }: Me
     return null;
   };
 
-  const showSpinner = messages.length > 0 && messages.at(-1)!.role !== 'assistant';
+  const showSpinner =
+    messages.length > 0 && messages.at(-1)!.role !== 'assistant';
 
   return (
     <Box flexGrow={1} flexDirection="column">
@@ -93,7 +99,12 @@ export function Messages({ messages: rawMessages, model, provider, variant }: Me
 
 type ContentPart =
   | { type: 'text'; text: string }
-  | { type: 'tool-call'; toolCallId: string; toolName: string | null; input: unknown };
+  | {
+      type: 'tool-call';
+      toolCallId: string;
+      toolName: string | null;
+      input: unknown;
+    };
 
 function getContentParts(content: unknown): ContentPart[] {
   if (typeof content === 'string') return [{ type: 'text', text: content }];
@@ -120,7 +131,9 @@ type ToolResultData = {
   output: unknown;
 };
 
-function buildToolResultsMap(messages: AskMessage[]): Map<string, ToolResultData> {
+function buildToolResultsMap(
+  messages: AskMessage[],
+): Map<string, ToolResultData> {
   const map = new Map<string, ToolResultData>();
   for (const message of messages) {
     if (message.role !== 'tool' || !Array.isArray(message.content)) continue;

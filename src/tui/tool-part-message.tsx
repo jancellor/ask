@@ -14,9 +14,21 @@ export type ToolPartMessageRenderProps = {
   output: unknown;
 };
 
-export function ToolPartMessage({ toolName, input, output }: ToolPartMessageProps) {
+export function ToolPartMessage({
+  toolName,
+  input,
+  output,
+}: ToolPartMessageProps) {
   if (toolName === 'execute') {
-    return <ExecuteToolPartMessage toolName={toolName} input={input} output={output} />;
+    return (
+      <ExecuteToolPartMessage
+        toolName={toolName}
+        input={input}
+        output={output}
+      />
+    );
   }
-  return <GenericToolPartMessage toolName={toolName} input={input} output={output} />;
+  return (
+    <GenericToolPartMessage toolName={toolName} input={input} output={output} />
+  );
 }

@@ -23,7 +23,7 @@ This document defines the runtime configuration format for model/provider select
 
 ```ts
 export type Config = {
-  activeProvider?: string;
+  currentProvider?: string;
 
   // Global defaults.
   generateOptions?: GenerateTextOptions;
@@ -41,7 +41,7 @@ export type ProviderConfig = {
   providerOptions?: Record<string, unknown>;
   generateOptions?: GenerateTextOptions;
 
-  activeModel?: string;
+  currentModel?: string;
   models?: Record<string, ModelConfig>;
 };
 
@@ -49,8 +49,8 @@ export type ModelConfig = {
   // Per-model defaults.
   generateOptions?: GenerateTextOptions;
 
-  // Optional active variant. Undefined means no variant selected.
-  activeVariant?: string;
+  // Optional current variant. Undefined means no variant selected.
+  currentVariant?: string;
 
   // Optional variant profiles.
   variants?: Record<string, VariantConfig>;
@@ -85,20 +85,20 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
 
 ```json
 {
-  "activeProvider": "anthropic",
+  "currentProvider": "anthropic",
   "generateOptions": {
     "temperature": 0.2,
     "maxOutputTokens": 1200
   },
   "providers": {
     "anthropic": {
-      "activeModel": "claude-sonnet-4",
+      "currentModel": "claude-sonnet-4",
       "generateOptions": {
         "maxOutputTokens": 1600
       },
       "models": {
         "claude-sonnet-4": {
-          "activeVariant": "balanced",
+          "currentVariant": "balanced",
           "generateOptions": {},
           "variants": {
             "fast": {
@@ -140,7 +140,7 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
           }
         },
         "claude-opus-4": {
-          "activeVariant": "high",
+          "currentVariant": "high",
           "generateOptions": {},
           "variants": {
             "medium": {
@@ -172,10 +172,10 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
       }
     },
     "openai": {
-      "activeModel": "gpt-5",
+      "currentModel": "gpt-5",
       "models": {
         "gpt-5": {
-          "activeVariant": "medium",
+          "currentVariant": "medium",
           "generateOptions": {},
           "variants": {
             "low": {
@@ -215,10 +215,10 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
         "name": "local-ollama",
         "baseURL": "http://localhost:11434/v1"
       },
-      "activeModel": "llama3.1:70b",
+      "currentModel": "llama3.1:70b",
       "models": {
         "llama3.1:70b": {
-          "activeVariant": "default",
+          "currentVariant": "default",
           "generateOptions": {
             "temperature": 0.7,
             "maxOutputTokens": 800
@@ -258,7 +258,7 @@ Effective call settings are created by deep merge in this exact order:
 1. Root `generateOptions`
 2. `provider.generateOptions`
 3. `model.generateOptions`
-4. `variant.generateOptions` (if `activeVariant` is defined and exists)
+4. `variant.generateOptions` (if `currentVariant` is defined and exists)
 5. CLI overrides
 
 Later entries override earlier entries.
@@ -274,14 +274,14 @@ Selection flags:
 
 Resolution rules:
 
-1. Any omitted selection uses the current active value from config.
-2. If any of provider/model/variant cannot be resolved after fallback to active values, command must error.
-3. In `-c` / `--config` mode, providing any of `-p` / `-m` / `-v` persists those values back to active config.
-4. Outside `-c` / `--config` mode, CLI selection changes are run-local only and do not update active values.
+1. Any omitted selection uses the current configured value from config.
+2. If any of provider/model/variant cannot be resolved after fallback to current values, command must error.
+3. In `-c` / `--config` mode, providing any of `-p` / `-m` / `-v` persists those values back to current config.
+4. Outside `-c` / `--config` mode, CLI selection changes are run-local only and do not update current values.
 
 ## Notes
 
-- `activeVariant` is optional (`undefined` means variant layer is skipped).
+- `currentVariant` is optional (`undefined` means variant layer is skipped).
 - `variants` is optional; models can be used without variants.
 - Prefer deep merge semantics for nested objects like `providerOptions`.
 - Config writes should be atomic and skipped when content would be unchanged.

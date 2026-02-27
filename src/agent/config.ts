@@ -17,7 +17,7 @@ export type ConfigOptions = {
   provider?: string;
   model?: string;
   variant?: string | null;
-  setActive?: boolean;
+  saveAsCurrent?: boolean;
 };
 
 export type ResolvedConfig = {
@@ -62,8 +62,8 @@ export class ConfigReader {
     const providerOptions: ProviderOptions = providerConfig.providerOptions ?? {};
     const providerSecretOptions: ProviderSecretOptions = secrets[provider] ?? {};
 
-    if (configOptions.setActive) {
-      await this.saveActiveConfig(config, provider, model, variant);
+    if (configOptions.saveAsCurrent) {
+      await this.saveAsCurrent(config, provider, model, variant);
     }
 
     const generateOptions = merge(
@@ -93,27 +93,27 @@ export class ConfigReader {
     };
   }
 
-  private async saveActiveConfig(
+  private async saveAsCurrent(
     config: Config,
     provider: string,
     model: string,
     variant: string | null,
   ): Promise<void> {
     const persistedVariant =
-      config.providers?.[provider]?.models?.[model]?.activeVariant ?? null;
-    // prevent unnecessary config only to set `activeVariant: null`
+      config.providers?.[provider]?.models?.[model]?.currentVariant ?? null;
+    // prevent unnecessary config only to set `currentVariant: null`
     const shouldOmitNullVariant = variant === null && persistedVariant === null;
 
     const patch = {
-      activeProvider: provider,
+      currentProvider: provider,
       providers: {
         [provider]: {
-          activeModel: model,
+          currentModel: model,
           ...(!shouldOmitNullVariant
             ? {
                 models: {
                   [model]: {
-                    activeVariant: variant,
+                    currentVariant: variant,
                   },
                 },
               }
@@ -132,7 +132,7 @@ export class ConfigReader {
     config: Config,
     configOptions: ConfigOptions,
   ): { provider: string; providerConfig: ProviderConfig } {
-    const provider = configOptions.provider ?? config.activeProvider;
+    const provider = configOptions.provider ?? config.currentProvider;
     check(provider, 'provider not specified');
     const providerConfig = config.providers?.[provider] ?? {
       sdkProvider: provider,
@@ -144,7 +144,7 @@ export class ConfigReader {
     provider: ProviderConfig,
     configOptions: ConfigOptions,
   ): { model: string; modelConfig: ModelConfig } {
-    const model = configOptions.model ?? provider.activeModel;
+    const model = configOptions.model ?? provider.currentModel;
     check(model, `model not specified`);
     const modelConfig = provider.models?.[model] ?? {
       sdkModel: model,
@@ -156,7 +156,7 @@ export class ConfigReader {
     model: ModelConfig,
     configOptions: ConfigOptions,
   ): { variant: string | null; variantConfig: VariantConfig | undefined } {
-    const variant = configOptions.variant ?? model.activeVariant ?? null;
+    const variant = configOptions.variant ?? model.currentVariant ?? null;
     const variantConfig = variant ? model.variants?.[variant] : undefined;
     if (variant) check(variantConfig, `variant not found: ${variant}`);
     return { variant, variantConfig };

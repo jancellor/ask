@@ -9,7 +9,7 @@ export type RunConfigOptions = {
 export async function runConfig(options: RunConfigOptions): Promise<void> {
   const resolved = await new ConfigReader().resolve({
     ...options,
-    setActive: true,
+    saveAsCurrent: true,
   });
   printResolvedConfig(resolved);
 }
@@ -18,11 +18,11 @@ function printResolvedConfig(resolved: ResolvedConfig): void {
   const provider =
     resolved.provider === resolved.sdkProvider
       ? resolved.provider
-      : `${resolved.provider}->${resolved.sdkProvider}`;
+      : `${resolved.provider}=${resolved.sdkProvider}`;
   const model =
     resolved.model === resolved.sdkModel
       ? resolved.model
-      : `${resolved.model}->${resolved.sdkModel}`;
+      : `${resolved.model}=${resolved.sdkModel}`;
   const variant = resolved.variant ?? '';
 
   console.log(`provider=${provider}`);

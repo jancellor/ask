@@ -49,7 +49,7 @@ export class Agent {
   static async create(options: AgentOptions): Promise<Agent> {
     const [session, config] = await Promise.all([
       Session.create(options),
-      new ConfigReader().read(options),
+      new ConfigReader().resolve(options),
     ]);
     return new Agent(session, config);
   }

@@ -1,19 +1,14 @@
 import type { LanguageModel } from 'ai';
-import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import { isMatch, merge } from 'lodash-es';
-import { homedir } from 'os';
-import { join } from 'path';
-import type { ZodType } from 'zod';
 import { check } from './check.js';
 import {
-  Config,
-  ConfigSecrets,
+  type Config,
   type GenerateOptions,
   type ModelConfig,
   type ProviderConfig,
   type VariantConfig,
 } from './config-schema.js';
-import { ignoreMissing } from './fs-ops.js';
+import { ConfigStore } from './config-store.js';
 import { createLanguageModel } from './provider-factories.js';
 
 export type ConfigOptions = {
@@ -32,17 +27,16 @@ export type ResolvedConfig = {
 };
 
 export class ConfigReader {
-  private static CONFIG_DIR = join(homedir(), '.config', 'ask');
-  private static CONFIG_PATH = join(ConfigReader.CONFIG_DIR, 'config.json');
-  private static SECRETS_PATH = join(
-    ConfigReader.CONFIG_DIR,
-    'config.secrets.json',
-  );
+  private store: ConfigStore;
 
-  async read(configOptions: ConfigOptions): Promise<ResolvedConfig> {
+  constructor() {
+    this.store = new ConfigStore();
+  }
+
+  async resolve(configOptions: ConfigOptions): Promise<ResolvedConfig> {
     const [config, secrets] = await Promise.all([
-      this.readConfigFile(),
-      this.readSecretsFile(),
+      this.store.readConfig(),
+      this.store.readSecrets(),
     ]);
 
     const { provider, providerConfig } = this.resolveProvider(
@@ -92,28 +86,6 @@ export class ConfigReader {
     };
   }
 
-  private async readJsonFile(path: string): Promise<unknown | undefined> {
-    const content = await ignoreMissing(() => readFile(path, 'utf-8'));
-    if (content === undefined) return undefined;
-    try {
-      return JSON.parse(content);
-    } catch {
-      throw new Error(`invalid JSON in ${path}`);
-    }
-  }
-
-  private parseWithSchema<T>(
-    schemaName: string,
-    parser: ZodType<T>,
-    input: unknown,
-  ): T {
-    const result = parser.safeParse(input);
-    if (result.success) return result.data;
-    throw new Error(
-      `invalid ${schemaName}: ${JSON.stringify(result.error.issues, null, 2)}`,
-    );
-  }
-
   private async maybeSaveActive(
     config: Config,
     provider: string,
@@ -143,33 +115,10 @@ export class ConfigReader {
       },
     };
 
-    if (isMatch(config, patch)) return;
-
-    const patched = merge({}, config, patch);
-    const serialized = JSON.stringify(patched, null, 2) + '\n';
-    await this.writeConfigAtomically(serialized);
-  }
-
-  private async readConfigFile(): Promise<Config> {
-    const raw = await this.readJsonFile(ConfigReader.CONFIG_PATH);
-    return this.parseWithSchema('config.json', Config, raw ?? {});
-  }
-
-  private async readSecretsFile(): Promise<ConfigSecrets> {
-    const raw = await this.readJsonFile(ConfigReader.SECRETS_PATH);
-    return this.parseWithSchema(
-      'config.secrets.json',
-      ConfigSecrets,
-      raw ?? {},
-    );
-  }
-
-  private async writeConfigAtomically(data: string): Promise<void> {
-    await mkdir(ConfigReader.CONFIG_DIR, { recursive: true });
-    const path = ConfigReader.CONFIG_PATH;
-    const tempPath = `${path}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tempPath, data, 'utf-8');
-    await rename(tempPath, path);
+    if (!isMatch(config, patch)) {
+      const patched = merge({}, config, patch);
+      await this.store.writeConfig(patched);
+    }
   }
 
   private resolveProvider(

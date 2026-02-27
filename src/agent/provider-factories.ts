@@ -13,8 +13,8 @@ import type {
 export type ProviderFactoryConfig = {
   sdkProvider: string;
   sdkModel: string;
-  providerOptions?: ProviderOptions;
-  providerSecretOptions?: ProviderSecretOptions;
+  providerOptions: ProviderOptions;
+  providerSecretOptions: ProviderSecretOptions;
 };
 
 type SDKProviderFactory = (
@@ -36,7 +36,7 @@ export function createLanguageModel(
   check(providerFactory, `unsupported provider "${config.sdkProvider}"`);
 
   return providerFactory({
-    ...(config.providerOptions ?? {}),
-    ...(config.providerSecretOptions ?? {}),
+    ...config.providerOptions,
+    ...config.providerSecretOptions,
   })(config.sdkModel);
 }

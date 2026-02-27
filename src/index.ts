@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { runTui } from './tui/index.js';
 import { runBatch } from './batch/index.js';
+import { runConfig } from './config/index.js';
 
 async function main(): Promise<void> {
   const program = new Command()
@@ -10,7 +11,7 @@ async function main(): Promise<void> {
     .option('-p, --provider <provider>', 'provider to use for this run')
     .option('-m, --model <model>', 'model to use for this run')
     .option('-v, --variant [variant]', 'variant to use (or none)')
-    .option('-s, --set-active', 'set selected provider/model/variant')
+    .option('-c, --config', 'set/show current config and exit')
     .option('-r, --resume [id]', 'read from given (or last) session')
     .option('-f, --fork [id]', 'write to given (or random) session')
     .option('-i, --interactive', 'force interactive mode')
@@ -27,11 +28,18 @@ async function main(): Promise<void> {
     provider?: string;
     model?: string;
     variant?: string | true;
-    setActive?: true;
+    config?: true;
     interactive?: true;
     batch?: true;
   }>();
   const message = program.args[0] as string | undefined;
+
+  const variant = opts.variant === true ? null : opts.variant;
+  const configOptions = {
+    provider: opts.provider,
+    model: opts.model,
+    variant,
+  };
 
   const mode: 'auto' | 'interactive' | 'batch' =
     opts.interactive && opts.batch
@@ -49,16 +57,16 @@ async function main(): Promise<void> {
   const agentOptions = {
     resume: opts.resume,
     fork: opts.fork,
-    provider: opts.provider,
-    model: opts.model,
-    variant:
-      opts.variant === true ? null : (opts.variant as string | undefined),
-    setActive: opts.setActive,
+    ...configOptions,
   };
 
-  useInteractive
-    ? await runTui(agentOptions)
-    : await runBatch(message, agentOptions);
+  if (opts.config) {
+    await runConfig(configOptions);
+  } else if (useInteractive) {
+    await runTui(agentOptions);
+  } else {
+    await runBatch(message, agentOptions);
+  }
 }
 
 main().catch((error) => {

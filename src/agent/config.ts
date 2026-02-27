@@ -5,7 +5,9 @@ import {
   type Config,
   type GenerateOptions,
   type ModelConfig,
+  type ProviderOptions,
   type ProviderConfig,
+  type ProviderSecretOptions,
   type VariantConfig,
 } from './config-schema.js';
 import { ConfigStore } from './config-store.js';
@@ -22,6 +24,9 @@ export type ResolvedConfig = {
   provider: string;
   model: string;
   variant: string | null;
+  sdkProvider: string;
+  sdkModel: string;
+  providerOptions: ProviderOptions;
   generateOptions: GenerateOptions;
   languageModel: LanguageModel;
 };
@@ -52,15 +57,14 @@ export class ConfigReader {
       configOptions,
     );
 
-    const providerSecretOptions = secrets[provider];
-
-    if (configOptions.setActive) {
-      await this.maybeSaveActive(config, provider, model, variant);
-    }
-
     const sdkProvider = providerConfig.sdkProvider ?? provider;
     const sdkModel = modelConfig.sdkModel ?? model;
-    const providerOptions = providerConfig.providerOptions;
+    const providerOptions: ProviderOptions = providerConfig.providerOptions ?? {};
+    const providerSecretOptions: ProviderSecretOptions = secrets[provider] ?? {};
+
+    if (configOptions.setActive) {
+      await this.saveActiveConfig(config, provider, model, variant);
+    }
 
     const generateOptions = merge(
       {},
@@ -81,12 +85,15 @@ export class ConfigReader {
       provider,
       model,
       variant,
+      sdkProvider,
+      sdkModel,
+      providerOptions,
       generateOptions,
       languageModel,
     };
   }
 
-  private async maybeSaveActive(
+  private async saveActiveConfig(
     config: Config,
     provider: string,
     model: string,

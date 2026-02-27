@@ -270,14 +270,14 @@ Selection flags:
 - `-p`, `--provider`
 - `-m`, `--model`
 - `-v`, `--variant`
-- `-s`, `--set-active`
+- `-c`, `--config`
 
 Resolution rules:
 
 1. Any omitted selection uses the current active value from config.
 2. If any of provider/model/variant cannot be resolved after fallback to active values, command must error.
-3. `-s` / `--set-active` is required to persist selection changes back to config.
-4. Without `-s` / `--set-active`, CLI selection changes are run-local only and do not update active values.
+3. In `-c` / `--config` mode, providing any of `-p` / `-m` / `-v` persists those values back to active config.
+4. Outside `-c` / `--config` mode, CLI selection changes are run-local only and do not update active values.
 
 ## Notes
 

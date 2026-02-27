@@ -26,7 +26,7 @@ export type Config = {
   activeProvider?: string;
 
   // Global defaults.
-  options?: GenerateTextOptions;
+  generateOptions?: GenerateTextOptions;
 
   providers?: Record<string, ProviderConfig>;
 };
@@ -39,7 +39,7 @@ export type ProviderConfig = {
   // Passed through directly to the AI SDK provider factory.
   // Runtime merges provider secret options on top before creating the provider.
   providerOptions?: Record<string, unknown>;
-  options?: GenerateTextOptions;
+  generateOptions?: GenerateTextOptions;
 
   activeModel?: string;
   models?: Record<string, ModelConfig>;
@@ -47,7 +47,7 @@ export type ProviderConfig = {
 
 export type ModelConfig = {
   // Per-model defaults.
-  options?: GenerateTextOptions;
+  generateOptions?: GenerateTextOptions;
 
   // Optional active variant. Undefined means no variant selected.
   activeVariant?: string;
@@ -57,7 +57,7 @@ export type ModelConfig = {
 };
 
 export type VariantConfig = {
-  options?: GenerateTextOptions;
+  generateOptions?: GenerateTextOptions;
 };
 
 // Intentionally broad; this should mirror AI SDK generateText call settings
@@ -86,23 +86,23 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
 ```json
 {
   "activeProvider": "anthropic",
-  "options": {
+  "generateOptions": {
     "temperature": 0.2,
     "maxOutputTokens": 1200
   },
   "providers": {
     "anthropic": {
       "activeModel": "claude-sonnet-4",
-      "options": {
+      "generateOptions": {
         "maxOutputTokens": 1600
       },
       "models": {
         "claude-sonnet-4": {
           "activeVariant": "balanced",
-          "options": {},
+          "generateOptions": {},
           "variants": {
             "fast": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "anthropic": {
                     "thinking": {
@@ -114,7 +114,7 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
               }
             },
             "balanced": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "anthropic": {
                     "thinking": {
@@ -126,7 +126,7 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
               }
             },
             "deep": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "anthropic": {
                     "thinking": {
@@ -141,10 +141,10 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
         },
         "claude-opus-4": {
           "activeVariant": "high",
-          "options": {},
+          "generateOptions": {},
           "variants": {
             "medium": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "anthropic": {
                     "thinking": {
@@ -156,7 +156,7 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
               }
             },
             "high": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "anthropic": {
                     "thinking": {
@@ -176,10 +176,10 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
       "models": {
         "gpt-5": {
           "activeVariant": "medium",
-          "options": {},
+          "generateOptions": {},
           "variants": {
             "low": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "openai": {
                     "reasoningEffort": "low"
@@ -188,7 +188,7 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
               }
             },
             "medium": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "openai": {
                     "reasoningEffort": "medium"
@@ -197,7 +197,7 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
               }
             },
             "high": {
-              "options": {
+              "generateOptions": {
                 "providerOptions": {
                   "openai": {
                     "reasoningEffort": "high"
@@ -219,13 +219,13 @@ export type ConfigSecrets = Record<string, ProviderSecretOptions>;
       "models": {
         "llama3.1:70b": {
           "activeVariant": "default",
-          "options": {
+          "generateOptions": {
             "temperature": 0.7,
             "maxOutputTokens": 800
           },
           "variants": {
             "default": {
-              "options": {}
+              "generateOptions": {}
             }
           }
         }
@@ -255,15 +255,15 @@ Example `config.secrets.json`:
 
 Effective call settings are created by deep merge in this exact order:
 
-1. Root `options`
-2. `provider.options`
-3. `model.options`
-4. `variant.options` (if `activeVariant` is defined and exists)
+1. Root `generateOptions`
+2. `provider.generateOptions`
+3. `model.generateOptions`
+4. `variant.generateOptions` (if `activeVariant` is defined and exists)
 5. CLI overrides
 
 Later entries override earlier entries.
 
-## CLI Selection and Save Behavior
+## CLI Selection and Set Behavior
 
 Selection flags:
 

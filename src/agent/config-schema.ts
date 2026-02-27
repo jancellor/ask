@@ -5,12 +5,12 @@ export const ProviderOptions = z.record(z.string(), z.unknown());
 export const ProviderSecretOptions = z.record(z.string(), z.unknown());
 
 export const VariantConfig = z.object({
-  options: GenerateOptions.optional(),
+  generateOptions: GenerateOptions.optional(),
 });
 
 export const ModelConfig = z.object({
   sdkModel: z.string().optional(),
-  options: GenerateOptions.optional(),
+  generateOptions: GenerateOptions.optional(),
   activeVariant: z.string().nullable().optional(),
   variants: z.record(z.string(), VariantConfig).optional(),
 });
@@ -18,14 +18,14 @@ export const ModelConfig = z.object({
 export const ProviderConfig = z.object({
   sdkProvider: z.string().optional(),
   providerOptions: ProviderOptions.optional(),
-  options: GenerateOptions.optional(),
+  generateOptions: GenerateOptions.optional(),
   activeModel: z.string().optional(),
   models: z.record(z.string(), ModelConfig).optional(),
 });
 
 export const Config = z.object({
   activeProvider: z.string().optional(),
-  options: GenerateOptions.optional(),
+  generateOptions: GenerateOptions.optional(),
   providers: z.record(z.string(), ProviderConfig).optional(),
 });
 

@@ -16,18 +16,18 @@ import {
 import { ignoreMissing } from './fs-ops.js';
 import { createLanguageModel } from './provider-factories.js';
 
-export type ConfigSelection = {
+export type ConfigOptions = {
   provider?: string;
   model?: string;
   variant?: string | null;
-  saveActive?: boolean;
+  setActive?: boolean;
 };
 
 export type ResolvedConfig = {
   provider: string;
   model: string;
   variant: string | null;
-  options: GenerateOptions;
+  generateOptions: GenerateOptions;
   languageModel: LanguageModel;
 };
 
@@ -39,7 +39,7 @@ export class ConfigReader {
     'config.secrets.json',
   );
 
-  async read(selection: ConfigSelection = {}): Promise<ResolvedConfig> {
+  async read(configOptions: ConfigOptions): Promise<ResolvedConfig> {
     const [config, secrets] = await Promise.all([
       this.readConfigFile(),
       this.readSecretsFile(),
@@ -47,17 +47,20 @@ export class ConfigReader {
 
     const { provider, providerConfig } = this.resolveProvider(
       config,
-      selection,
+      configOptions,
     );
-    const { model, modelConfig } = this.resolveModel(providerConfig, selection);
+    const { model, modelConfig } = this.resolveModel(
+      providerConfig,
+      configOptions,
+    );
     const { variant, variantConfig } = this.resolveVariant(
       modelConfig,
-      selection,
+      configOptions,
     );
 
     const providerSecretOptions = secrets[provider];
 
-    if (selection.saveActive) {
+    if (configOptions.setActive) {
       await this.maybeSaveActive(config, provider, model, variant);
     }
 
@@ -65,12 +68,12 @@ export class ConfigReader {
     const sdkModel = modelConfig.sdkModel ?? model;
     const providerOptions = providerConfig.providerOptions;
 
-    const options = merge(
+    const generateOptions = merge(
       {},
-      config.options,
-      providerConfig.options,
-      modelConfig.options,
-      variantConfig?.options,
+      config.generateOptions,
+      providerConfig.generateOptions,
+      modelConfig.generateOptions,
+      variantConfig?.generateOptions,
     );
 
     const languageModel = createLanguageModel({
@@ -84,7 +87,7 @@ export class ConfigReader {
       provider,
       model,
       variant,
-      options,
+      generateOptions,
       languageModel,
     };
   }
@@ -171,9 +174,9 @@ export class ConfigReader {
 
   private resolveProvider(
     config: Config,
-    selection: ConfigSelection,
+    configOptions: ConfigOptions,
   ): { provider: string; providerConfig: ProviderConfig } {
-    const provider = selection.provider ?? config.activeProvider;
+    const provider = configOptions.provider ?? config.activeProvider;
     check(provider, 'provider not specified');
     const providerConfig = config.providers?.[provider] ?? {
       sdkProvider: provider,
@@ -183,9 +186,9 @@ export class ConfigReader {
 
   private resolveModel(
     provider: ProviderConfig,
-    selection: ConfigSelection,
+    configOptions: ConfigOptions,
   ): { model: string; modelConfig: ModelConfig } {
-    const model = selection.model ?? provider.activeModel;
+    const model = configOptions.model ?? provider.activeModel;
     check(model, `model not specified`);
     const modelConfig = provider.models?.[model] ?? {
       sdkModel: model,
@@ -195,9 +198,9 @@ export class ConfigReader {
 
   private resolveVariant(
     model: ModelConfig,
-    selection: ConfigSelection,
+    configOptions: ConfigOptions,
   ): { variant: string | null; variantConfig: VariantConfig | undefined } {
-    const variant = selection.variant ?? model.activeVariant ?? null;
+    const variant = configOptions.variant ?? model.activeVariant ?? null;
     const variantConfig = variant ? model.variants?.[variant] : undefined;
     if (variant) check(variantConfig, `variant not found: ${variant}`);
     return { variant, variantConfig };

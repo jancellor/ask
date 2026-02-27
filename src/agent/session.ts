@@ -2,11 +2,11 @@ import { randomUUID } from 'crypto';
 import type { AskMessage } from './messages.js';
 import {
   SessionStore,
-  type SessionStoreCreateOptions,
+  type SessionStoreOptions,
 } from './session-store.js';
 import type { ModelMessage } from 'ai';
 
-export type SessionCreateOptions = SessionStoreCreateOptions;
+export type SessionOptions = SessionStoreOptions;
 
 export class Session {
   private sessionStore: SessionStore;
@@ -23,7 +23,7 @@ export class Session {
     this.sessionStore = sessionStore;
   }
 
-  static async create(options: SessionCreateOptions): Promise<Session> {
+  static async create(options: SessionOptions): Promise<Session> {
     const sessionStore = await SessionStore.create(options);
 
     const messagesById = new Map<string, AskMessage>();

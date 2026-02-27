@@ -7,6 +7,10 @@ async function main(): Promise<void> {
   const program = new Command()
     .name('ask')
     .allowExcessArguments(false)
+    .option('-p, --provider <provider>', 'provider to use for this run')
+    .option('-m, --model <model>', 'model to use for this run')
+    .option('-v, --variant [variant]', 'variant to use (or none)')
+    .option('-s, --set-active', 'set selected provider/model/variant')
     .option('-r, --resume [id]', 'read from given (or last) session')
     .option('-f, --fork [id]', 'write to given (or random) session')
     .option('-i, --interactive', 'force interactive mode')
@@ -20,6 +24,10 @@ async function main(): Promise<void> {
   const opts = program.opts<{
     resume?: string | true;
     fork?: true | string;
+    provider?: string;
+    model?: string;
+    variant?: string | true;
+    setActive?: true;
     interactive?: true;
     batch?: true;
   }>();
@@ -38,7 +46,19 @@ async function main(): Promise<void> {
     mode == 'interactive' ||
     (mode == 'auto' && process.stdin.isTTY && message === undefined);
 
-  useInteractive ? await runTui(opts) : await runBatch(message, opts);
+  const agentOptions = {
+    resume: opts.resume,
+    fork: opts.fork,
+    provider: opts.provider,
+    model: opts.model,
+    variant:
+      opts.variant === true ? null : (opts.variant as string | undefined),
+    setActive: opts.setActive,
+  };
+
+  useInteractive
+    ? await runTui(agentOptions)
+    : await runBatch(message, agentOptions);
 }
 
 main().catch((error) => {

@@ -5,10 +5,14 @@ import {
   type ToolSet,
   type TypedToolCall,
 } from 'ai';
-import { ConfigReader, type ResolvedConfig } from './config.js';
+import {
+  ConfigReader,
+  type ConfigOptions,
+  type ResolvedConfig,
+} from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import type { AskMessage } from './messages.js';
-import { Session, type SessionCreateOptions } from './session.js';
+import { Session, type SessionOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
@@ -21,7 +25,7 @@ export interface AgentListener {
   onFork?(): void | Promise<void>;
 }
 
-export type AgentCreateOptions = SessionCreateOptions;
+export type AgentOptions = SessionOptions & ConfigOptions;
 
 export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
@@ -42,10 +46,10 @@ export class Agent {
     this.tools = new Tools();
   }
 
-  static async create(options: AgentCreateOptions): Promise<Agent> {
+  static async create(options: AgentOptions): Promise<Agent> {
     const [session, config] = await Promise.all([
       Session.create(options),
-      new ConfigReader().read(),
+      new ConfigReader().read(options),
     ]);
     return new Agent(session, config);
   }
@@ -91,7 +95,7 @@ export class Agent {
       try {
         while (true) {
           const result = await generateText({
-            ...(this.config.options as Record<string, unknown>),
+            ...this.config.generateOptions,
             model: this.config.languageModel,
             system: this.systemPrompt,
             messages: this.session.messages,

@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { ignoreMissing } from './fs-ops.js';
 import type { AskMessage } from './messages.js';
 
-export interface SessionStoreCreateOptions {
+export interface SessionStoreOptions {
   resume?: string | true;
   fork?: true | string;
 }
@@ -28,7 +28,7 @@ export class SessionStore {
   }
 
   static async create(
-    options: SessionStoreCreateOptions,
+    options: SessionStoreOptions,
   ): Promise<SessionStore> {
     const fallbackLastSessionId =
       options.resume === true || options.fork !== undefined

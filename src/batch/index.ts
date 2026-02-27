@@ -1,12 +1,12 @@
 import {
   Agent,
-  type AgentCreateOptions,
+  type AgentOptions,
   type AskMessage,
 } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 
-type RunBatchOptions = AgentCreateOptions;
+type RunBatchOptions = AgentOptions;
 
 export async function runBatch(
   argument: string | undefined,

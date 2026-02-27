@@ -1,10 +1,10 @@
 import React from 'react';
 import { render } from 'ink';
-import { Agent, type AgentCreateOptions } from '../agent/index.js';
+import { Agent, type AgentOptions } from '../agent/index.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import { App } from './app.js';
 
-type RunTuiOptions = AgentCreateOptions;
+type RunTuiOptions = AgentOptions;
 
 export async function runTui(options: RunTuiOptions): Promise<void> {
   const agent = await Agent.create(options);

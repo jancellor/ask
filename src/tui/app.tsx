@@ -11,7 +11,7 @@ type AppProps = {
 };
 
 export function App({ agent, onRequestShutdown }: AppProps) {
-  const { messages, modelId, provider, sendMessage, abort, clear } = useAgent(agent);
+  const { messages, model, provider, variant, sendMessage, abort, clear } = useAgent(agent);
 
   const handleSubmit = (message: string) => {
     void sendMessage(message);
@@ -19,7 +19,7 @@ export function App({ agent, onRequestShutdown }: AppProps) {
 
   return (
     <Box flexDirection="column" height="100%">
-      <Messages messages={messages} model={modelId} provider={provider} />
+      <Messages messages={messages} model={model} provider={provider} variant={variant} />
       <Input
         onSubmit={handleSubmit}
         onAbort={abort}

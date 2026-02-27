@@ -1,13 +1,11 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import {
   generateText,
-  type LanguageModel,
   type ModelMessage,
   type ToolContent,
   type ToolSet,
   type TypedToolCall,
 } from 'ai';
-import { ConfigReader } from './config.js';
+import { ConfigReader, type ResolvedConfig } from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import type { AskMessage } from './messages.js';
 import { Session, type SessionCreateOptions } from './session.js';
@@ -29,36 +27,27 @@ export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
-  readonly modelId: string;
-  readonly baseUrl: string;
-
   private listeners: AgentListener[] = [];
-  private languageModel: LanguageModel;
+  private config: ResolvedConfig;
   private systemPrompt: string;
   private tools: Tools;
   private session: Session;
   private serializer = new Serializer();
   private controller: AbortController | null = null;
 
-  private constructor(session: Session) {
+  private constructor(session: Session, config: ResolvedConfig) {
     this.session = session;
-
-    const config = new ConfigReader().read();
-    this.modelId = config.model;
-    this.baseUrl = config.baseUrl;
-    const provider = createOpenAICompatible({
-      name: 'ask',
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-    });
-    this.languageModel = provider(config.model);
+    this.config = config;
     this.systemPrompt = new SystemPrompt().build();
     this.tools = new Tools();
   }
 
   static async create(options: AgentCreateOptions): Promise<Agent> {
-    const session = await Session.create(options);
-    return new Agent(session);
+    const [session, config] = await Promise.all([
+      Session.create(options),
+      new ConfigReader().read(),
+    ]);
+    return new Agent(session, config);
   }
 
   addListener(listener: AgentListener): void {
@@ -78,6 +67,18 @@ export class Agent {
     return this.session.sessionId;
   }
 
+  get model(): string {
+    return this.config.model;
+  }
+
+  get provider(): string {
+    return this.config.provider;
+  }
+
+  get variant(): string | null {
+    return this.config.variant;
+  }
+
   ask(message: string): Promise<void> {
     return this.serializer.submit(async () => {
       await this.addInitialMessages();
@@ -90,7 +91,8 @@ export class Agent {
       try {
         while (true) {
           const result = await generateText({
-            model: this.languageModel,
+            ...(this.config.options as Record<string, unknown>),
+            model: this.config.languageModel,
             system: this.systemPrompt,
             messages: this.session.messages,
             tools: this.tools.definitions(),

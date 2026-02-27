@@ -10,6 +10,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { ignoreMissing } from './fs-ops.js';
 import type { AskMessage } from './messages.js';
 
 export interface SessionStoreCreateOptions {
@@ -54,8 +55,7 @@ export class SessionStore {
 
   static async lastSessionId(): Promise<string | null> {
     const dir = SessionStore.sessionsDir();
-    const entries =
-      (await SessionStore.ignoreMissing(() => readdir(dir))) ?? [];
+    const entries = (await ignoreMissing(() => readdir(dir))) ?? [];
 
     const jsonlFiles = entries.filter((f) => f.endsWith('.jsonl'));
     if (jsonlFiles.length === 0) return null;
@@ -76,19 +76,9 @@ export class SessionStore {
     throw new Error(`invalid session UUID: ${arg}`);
   }
 
-  private static async ignoreMissing<T>(
-    op: () => Promise<T>,
-  ): Promise<T | undefined> {
-    try {
-      return await op();
-    } catch (error: any) {
-      if (error?.code !== 'ENOENT') throw error;
-    }
-  }
-
   async read(): Promise<AskMessage[]> {
     const content =
-      (await SessionStore.ignoreMissing(() =>
+      (await ignoreMissing(() =>
         readFile(this.sessionPath, 'utf-8'),
       )) ?? '';
     return content
@@ -107,7 +97,7 @@ export class SessionStore {
     const resolvedSessionId = SessionStore.parseUuid(sessionId ?? randomUUID());
     const forked = new SessionStore(resolvedSessionId);
     await mkdir(SessionStore.sessionsDir(), { recursive: true });
-    await SessionStore.ignoreMissing(() =>
+    await ignoreMissing(() =>
       copyFile(this.sessionPath, forked.sessionPath),
     );
     return forked;

@@ -11,9 +11,10 @@ interface MessagesProps {
   messages: AskMessage[];
   model: string;
   provider: string;
+  variant: string | null;
 }
 
-export function Messages({ messages: rawMessages, model, provider }: MessagesProps) {
+export function Messages({ messages: rawMessages, model, provider, variant }: MessagesProps) {
   const messages = rawMessages.filter((m) => !m._meta?.uiHidden);
   const toolResults = buildToolResultsMap(messages);
 
@@ -71,7 +72,16 @@ export function Messages({ messages: rawMessages, model, provider }: MessagesPro
     <Box flexGrow={1} flexDirection="column">
       <Static items={allStaticItems}>
         {(item) => {
-          if (item.type === 'welcome') return <Welcome key="welcome" model={model} provider={provider} />;
+          if (item.type === 'welcome') {
+            return (
+              <Welcome
+                key="welcome"
+                model={model}
+                provider={provider}
+                variant={variant}
+              />
+            );
+          }
           return renderPart(item as MessagePart);
         }}
       </Static>

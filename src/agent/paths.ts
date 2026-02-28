@@ -1,4 +1,4 @@
-import { join, parse, sep } from 'path';
+import { join, parse, sep } from 'node:path';
 
 export function ancestorPaths(dir: string): string[] {
   const { root } = parse(dir);

@@ -1,6 +1,6 @@
-import { readFile } from 'fs/promises';
-import { homedir } from 'os';
-import { join } from 'path';
+import { readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { ancestorPaths } from './paths.js';
 
 export class AgentsPrompt {

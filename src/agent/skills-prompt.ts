@@ -1,6 +1,6 @@
-import { readdir, readFile } from 'fs/promises';
-import { homedir } from 'os';
-import { basename, join, relative, sep } from 'path';
+import { readdir, readFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { basename, join, relative, sep } from 'node:path';
 import { parse } from 'yaml';
 import { ancestorPaths } from './paths.js';
 

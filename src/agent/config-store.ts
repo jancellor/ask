@@ -1,6 +1,6 @@
-import { mkdir, readFile, rename, writeFile } from 'fs/promises';
-import { homedir } from 'os';
-import { join } from 'path';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import type { ZodType } from 'zod';
 import {
   Config,

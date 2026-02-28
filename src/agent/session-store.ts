@@ -5,10 +5,10 @@ import {
   readFile,
   readdir,
   stat,
-} from 'fs/promises';
-import { homedir } from 'os';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
+} from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { ignoreMissing } from './fs-ops.js';
 import type { AskMessage } from './messages.js';

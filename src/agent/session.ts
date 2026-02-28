@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import type { AskMessage } from './messages.js';
 import { SessionStore, type SessionStoreOptions } from './session-store.js';
 import type { ModelMessage } from 'ai';

@@ -1,6 +1,6 @@
-import { chmod, mkdir, readFile, writeFile } from 'fs/promises';
-import os from 'os';
-import path from 'path';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const ISSUER = 'https://auth.openai.com';

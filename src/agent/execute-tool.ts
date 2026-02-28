@@ -1,7 +1,7 @@
 import { tool } from 'ai';
-import { type ChildProcessByStdio, spawn } from 'child_process';
-import process from 'process';
-import type { Readable } from 'stream';
+import { type ChildProcessByStdio, spawn } from 'node:child_process';
+import process from 'node:process';
+import type { Readable } from 'node:stream';
 import { z } from 'zod';
 
 const DEFAULT_TIMEOUT_S = 60;

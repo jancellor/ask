@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { homedir } from 'os';
+import { homedir } from 'node:os';
 
 interface WelcomeProps {
   model: string;

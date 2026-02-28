@@ -21,7 +21,6 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "dev": "tsx src/cli.ts",
-    "prepublishOnly": "npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { parseMarkdown } from './markdown.js';
+import { renderMarkdown } from '../markdown/markdown.js';
 
 export function UserPartMessage({ text }: { text: string }) {
   const width = Math.max(10, process.stdout.columns ?? 80);
   const divider = '─'.repeat(width);
-  const parsed = parseMarkdown(text);
+  const parsed = renderMarkdown(text);
 
   return (
     <Box flexDirection="column">

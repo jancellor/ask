@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { ABORTED_MESSAGE, ERROR_MESSAGE } from '../agent/agent.js';
-import { parseMarkdown } from './markdown.js';
+import { renderMarkdown } from '../markdown/markdown.js';
 
 export function AssistantPartMessage({
   text,
@@ -13,7 +13,7 @@ export function AssistantPartMessage({
   const error = [ABORTED_MESSAGE, ERROR_MESSAGE].some((e) =>
     text.startsWith(e),
   );
-  const parsed = error || dim ? text : parseMarkdown(text);
+  const parsed = error || dim ? text : renderMarkdown(text);
   const color = error ? 'red' : dim ? 'gray' : undefined;
 
   return (

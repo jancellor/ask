@@ -27,7 +27,7 @@ marked.setOptions({
   }) as any,
 });
 
-export function parseMarkdown(text: string): string {
+export function renderMarkdown(text: string): string {
   const rendered = marked.parse(text) as string;
   return rendered.replace(/(?:\r?\n){1,2}$/, '');
 }

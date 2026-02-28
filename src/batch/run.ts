@@ -2,20 +2,25 @@ import { Agent, type AgentOptions } from '../agent/agent.js';
 import type { AskMessage } from '../agent/messages.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
+import { renderMarkdown } from '../markdown/markdown.js';
+import { z } from 'zod';
 
-type RunBatchOptions = AgentOptions;
+export const RenderMarkdown = z.enum(['auto', 'always', 'never']);
+export type RenderMarkdown = z.infer<typeof RenderMarkdown>;
 
-export async function runBatch(
-  argument: string | undefined,
-  options: RunBatchOptions,
-): Promise<void> {
+type RunBatchOptions = {
+  message?: string;
+  agentOptions: AgentOptions;
+  renderMarkdown: RenderMarkdown;
+};
+
+export async function runBatch(options: RunBatchOptions): Promise<void> {
   const stdin = !process.stdin.isTTY ? await readStdin() : undefined;
-  const message = [stdin, argument].filter(Boolean).join('\n\n');
+  const message = [stdin, options.message].filter(Boolean).join('\n\n');
   if (!message)
     throw new Error('no message provided (pass [message] or pipe stdin)');
 
-  const agent = await Agent.create(options);
-  // console.error(`[Session: ${agent.sessionId}]`);
+  const agent = await Agent.create(options.agentOptions);
 
   const shutdownManager = new ShutdownManager(async () => {
     await agent.cancelAll();
@@ -41,7 +46,28 @@ export async function runBatch(
 
   // Extract and output the final assistant response
   const response = extractFinalResponse(agent.messages);
-  console.log(response);
+
+  const shouldRenderMarkdown = shouldRenderMarkdownOutput(
+    options.renderMarkdown,
+  );
+
+  // Output: either rendered for the terminal or left as literal text
+  const output = shouldRenderMarkdown ? renderMarkdown(response) : response;
+  console.log(output);
+}
+
+function shouldRenderMarkdownOutput(
+  renderMarkdownOption: RenderMarkdown,
+): boolean {
+  switch (renderMarkdownOption) {
+    case 'always':
+      return true;
+    case 'never':
+      return false;
+    case 'auto':
+    default:
+      return process.stdout.isTTY;
+  }
 }
 
 async function readStdin(): Promise<string> {

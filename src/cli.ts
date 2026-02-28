@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { runInteractive } from './interactive/run.js';
-import { runBatch } from './batch/run.js';
+import { RenderMarkdown, runBatch } from './batch/run.js';
 import { runConfig } from './config/run.js';
 
 async function main(): Promise<void> {
@@ -16,6 +16,7 @@ async function main(): Promise<void> {
     .option('-f, --fork [id]', 'write to given (or random) session')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
+    .option('--render-markdown <when>', '(auto, always, never)', 'auto')
     .addHelpText(
       'after',
       '\nUse -- before message if ambiguous (eg ask -r -- "follow up question")',
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
     config?: true;
     interactive?: true;
     batch?: true;
+    renderMarkdown: string;
   }>();
   const message = program.args[0] as string | undefined;
 
@@ -54,6 +56,8 @@ async function main(): Promise<void> {
     mode == 'interactive' ||
     (mode == 'auto' && process.stdin.isTTY && message === undefined);
 
+  const renderMarkdown = parseRenderMarkdown(opts.renderMarkdown);
+
   const agentOptions = {
     resume: opts.resume,
     fork: opts.fork,
@@ -63,10 +67,17 @@ async function main(): Promise<void> {
   if (opts.config) {
     await runConfig(configOptions);
   } else if (useInteractive) {
-    await runInteractive(agentOptions);
+    await runInteractive({ agentOptions });
   } else {
-    await runBatch(message, agentOptions);
+    await runBatch({ message, agentOptions, renderMarkdown });
   }
+}
+
+function parseRenderMarkdown(value: string): RenderMarkdown {
+  const normalizedValue = value.toLowerCase();
+  const result = RenderMarkdown.safeParse(normalizedValue);
+  if (result.success) return result.data;
+  throw new Error(`--render-markdown value not expected`);
 }
 
 main().catch((error) => {

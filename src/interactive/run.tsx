@@ -4,10 +4,14 @@ import { Agent, type AgentOptions } from '../agent/agent.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import { App } from './app.js';
 
-type RunTuiOptions = AgentOptions;
+type RunInteractiveOptions = {
+  agentOptions: AgentOptions;
+};
 
-export async function runInteractive(options: RunTuiOptions): Promise<void> {
-  const agent = await Agent.create(options);
+export async function runInteractive(
+  options: RunInteractiveOptions,
+): Promise<void> {
+  const agent = await Agent.create(options.agentOptions);
 
   const shutdownManager = new ShutdownManager(async () => {
     try {

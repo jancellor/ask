@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from 'ink';
-import { type Agent } from '../agent/index.js';
+import { type Agent } from '../agent/agent.js';
 import { Input } from './input.js';
 import { Messages } from './messages.js';
 import { useAgent } from './use-agent.js';

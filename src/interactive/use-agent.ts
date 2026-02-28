@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Agent, type AskMessage } from '../agent/index.js';
+import { Agent } from '../agent/agent.js';
+import type { AskMessage } from '../agent/messages.js';
 
 type UseAgentResult = {
   messages: AskMessage[];

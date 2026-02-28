@@ -1,12 +1,12 @@
 import React from 'react';
 import { render } from 'ink';
-import { Agent, type AgentOptions } from '../agent/index.js';
+import { Agent, type AgentOptions } from '../agent/agent.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import { App } from './app.js';
 
 type RunTuiOptions = AgentOptions;
 
-export async function runTui(options: RunTuiOptions): Promise<void> {
+export async function runInteractive(options: RunTuiOptions): Promise<void> {
   const agent = await Agent.create(options);
 
   const shutdownManager = new ShutdownManager(async () => {

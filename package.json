@@ -2,9 +2,16 @@
   "name": "@jancellor/ask",
   "version": "1.0.0",
   "description": "A minimal coding agent CLI.",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "bin": {
-    "ask": "./dist/index.js"
+    "ask": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -13,7 +20,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
-    "dev": "tsx src/index.ts",
+    "dev": "tsx src/cli.ts",
     "prepublishOnly": "npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

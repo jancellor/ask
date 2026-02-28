@@ -1,4 +1,5 @@
-import { Agent, type AgentOptions, type AskMessage } from '../agent/index.js';
+import { Agent, type AgentOptions } from '../agent/agent.js';
+import type { AskMessage } from '../agent/messages.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
 

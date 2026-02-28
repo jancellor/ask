@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { ABORTED_MESSAGE, ERROR_MESSAGE } from '../agent/index.js';
+import { ABORTED_MESSAGE, ERROR_MESSAGE } from '../agent/agent.js';
 import { parseMarkdown } from './markdown.js';
 
 export function AssistantPartMessage({

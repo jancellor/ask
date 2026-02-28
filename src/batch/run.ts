@@ -2,7 +2,7 @@ import { Agent, type AgentOptions } from '../agent/agent.js';
 import type { AskMessage } from '../agent/messages.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
-import { renderMarkdown } from '../markdown/markdown.js';
+import { renderMarkdown } from '../render/render.js';
 import { z } from 'zod';
 
 export const RenderMarkdown = z.enum(['auto', 'always', 'never']);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { renderMarkdown } from '../markdown/markdown.js';
+import { renderMarkdown } from '../render/render.js';
 
 export function UserPartMessage({ text }: { text: string }) {
   const width = Math.max(10, process.stdout.columns ?? 80);

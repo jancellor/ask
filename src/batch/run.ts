@@ -2,16 +2,20 @@ import { Agent, type AgentOptions } from '../agent/agent.js';
 import type { AskMessage } from '../agent/messages.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import type { TextPart } from 'ai';
-import { renderMarkdown } from '../render/render.js';
+import {
+  renderMarkdown,
+  renderPrompt,
+  renderShellScript,
+} from '../render/render.js';
 import { z } from 'zod';
 
-export const RenderMarkdown = z.enum(['auto', 'always', 'never']);
-export type RenderMarkdown = z.infer<typeof RenderMarkdown>;
+export const RenderTerminal = z.enum(['auto', 'always', 'never']);
+export type RenderTerminal = z.infer<typeof RenderTerminal>;
 
 type RunBatchOptions = {
   message?: string;
   agentOptions: AgentOptions;
-  renderMarkdown: RenderMarkdown;
+  renderTerminal: RenderTerminal;
 };
 
 export async function runBatch(options: RunBatchOptions): Promise<void> {
@@ -21,6 +25,14 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
     throw new Error('no message provided (pass [message] or pipe stdin)');
 
   const agent = await Agent.create(options.agentOptions);
+  const shouldRenderStdout = shouldRenderTerminalOutput(
+    options.renderTerminal,
+    process.stdout.isTTY,
+  );
+  const shouldRenderStderr = shouldRenderTerminalOutput(
+    options.renderTerminal,
+    process.stderr.isTTY,
+  );
 
   const shutdownManager = new ShutdownManager(async () => {
     await agent.cancelAll();
@@ -34,8 +46,9 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
         if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
         for (const part of msg.content) {
           if (part?.type === 'tool-call') {
-            const line = formatToolCall(part.toolName, part.input);
-            console.error(truncate(line, 80));
+            console.error(
+              formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
+            );
           }
         }
       }
@@ -47,26 +60,23 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
   // Extract and output the final assistant response
   const response = extractFinalResponse(agent.messages);
 
-  const shouldRenderMarkdown = shouldRenderMarkdownOutput(
-    options.renderMarkdown,
-  );
-
   // Output: either rendered for the terminal or left as literal text
-  const output = shouldRenderMarkdown ? renderMarkdown(response) : response;
+  const output = shouldRenderStdout ? renderMarkdown(response) : response;
   console.log(output);
 }
 
-function shouldRenderMarkdownOutput(
-  renderMarkdownOption: RenderMarkdown,
+function shouldRenderTerminalOutput(
+  renderTerminalOption: RenderTerminal,
+  isTTY: boolean,
 ): boolean {
-  switch (renderMarkdownOption) {
+  switch (renderTerminalOption) {
     case 'always':
       return true;
     case 'never':
       return false;
     case 'auto':
     default:
-      return process.stdout.isTTY;
+      return isTTY;
   }
 }
 
@@ -78,16 +88,24 @@ async function readStdin(): Promise<string> {
   return data;
 }
 
-function formatToolCall(toolName: string, input: unknown): string {
+function formatToolCall(
+  toolName: string,
+  input: unknown,
+  maxLen: number,
+  shouldRender: boolean,
+): string {
   if (toolName === 'execute') {
     const command = extractCommand(input);
     if (command) {
-      return `$ ${command}`;
+      return shouldRender
+        ? formatExecuteToolCall(command, maxLen)
+        : truncateLine(`$ ${command}`, maxLen);
     }
   }
   // Generic format for other tools
   const inputStr = formatToolInput(input);
-  return inputStr ? `${toolName} ${inputStr}` : toolName;
+  const line = inputStr ? `${toolName} ${inputStr}` : toolName;
+  return truncateLine(line, maxLen);
 }
 
 function extractCommand(input: unknown): string | null {
@@ -105,7 +123,14 @@ function formatToolInput(input: unknown): string {
   return JSON.stringify(input);
 }
 
-function truncate(str: string, maxLen: number): string {
+function formatExecuteToolCall(command: string, maxLen: number): string {
+  const prefix = '$ ';
+  const commandMax = Math.max(0, maxLen - prefix.length);
+  const truncated = truncateLine(command, commandMax);
+  return renderPrompt(prefix) + renderShellScript(truncated);
+}
+
+function truncateLine(str: string, maxLen: number): string {
   const hasMultipleLines = str.includes('\n');
   const firstLine = str.split('\n')[0] ?? '';
 

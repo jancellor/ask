@@ -29,6 +29,8 @@ const SELECTOR = '#D7BA7D';
 const ADDITION_BG = '#144212';
 const DELETION_BG = '#660000';
 
+export const prompt = chalk.hex(KEYWORD);
+
 const theme: Theme = {
   keyword: chalk.hex(KEYWORD),
   built_in: chalk.hex(BUILT_IN),

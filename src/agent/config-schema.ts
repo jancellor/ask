@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const GenerateOptions = z.record(z.string(), z.unknown());
-export const ProviderOptions = z.record(z.string(), z.unknown());
+export const ProviderSettings = z.record(z.string(), z.unknown());
 export const ProviderSecretOptions = z.record(z.string(), z.unknown());
 
 export const VariantConfig = z.object({
@@ -17,7 +17,7 @@ export const ModelConfig = z.object({
 
 export const ProviderConfig = z.object({
   sdkProvider: z.string().optional(),
-  providerOptions: ProviderOptions.optional(),
+  providerSettings: ProviderSettings.optional(),
   generateOptions: GenerateOptions.optional(),
   currentModel: z.string().optional(),
   models: z.record(z.string(), ModelConfig).optional(),
@@ -32,7 +32,7 @@ export const Config = z.object({
 export const ConfigSecrets = z.record(z.string(), ProviderSecretOptions);
 
 export type GenerateOptions = z.infer<typeof GenerateOptions>;
-export type ProviderOptions = z.infer<typeof ProviderOptions>;
+export type ProviderSettings = z.infer<typeof ProviderSettings>;
 export type ProviderSecretOptions = z.infer<typeof ProviderSecretOptions>;
 export type Config = z.infer<typeof Config>;
 export type ProviderConfig = z.infer<typeof ProviderConfig>;

@@ -28,6 +28,6 @@ function printResolvedConfig(resolved: ResolvedConfig): void {
   console.log(`provider=${provider}`);
   console.log(`model=${model}`);
   console.log(`variant=${variant}`);
-  console.log(`providerOptions=${JSON.stringify(resolved.providerOptions)}`);
+  console.log(`providerSettings=${JSON.stringify(resolved.providerSettings)}`);
   console.log(`generateOptions=${JSON.stringify(resolved.generateOptions)}`);
 }

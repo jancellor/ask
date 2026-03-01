@@ -5,7 +5,7 @@ import {
   type Config,
   type GenerateOptions,
   type ModelConfig,
-  type ProviderOptions,
+  type ProviderSettings,
   type ProviderConfig,
   type ProviderSecretOptions,
   type VariantConfig,
@@ -26,7 +26,7 @@ export type ResolvedConfig = {
   variant: string | null;
   sdkProvider: string;
   sdkModel: string;
-  providerOptions: ProviderOptions;
+  providerSettings: ProviderSettings;
   generateOptions: GenerateOptions;
   languageModel: LanguageModel;
 };
@@ -59,8 +59,8 @@ export class ConfigReader {
 
     const sdkProvider = providerConfig.sdkProvider ?? provider;
     const sdkModel = modelConfig.sdkModel ?? model;
-    const providerOptions: ProviderOptions =
-      providerConfig.providerOptions ?? {};
+    const providerSettings: ProviderSettings =
+      providerConfig.providerSettings ?? {};
     const providerSecretOptions: ProviderSecretOptions =
       secrets[provider] ?? {};
 
@@ -79,7 +79,7 @@ export class ConfigReader {
     const languageModel = createLanguageModel({
       sdkProvider,
       sdkModel,
-      providerOptions,
+      providerSettings,
       providerSecretOptions,
     });
 
@@ -89,7 +89,7 @@ export class ConfigReader {
       variant,
       sdkProvider,
       sdkModel,
-      providerOptions,
+      providerSettings,
       generateOptions,
       languageModel,
     };

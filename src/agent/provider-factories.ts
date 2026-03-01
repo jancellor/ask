@@ -6,14 +6,14 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { check } from './check.js';
 import type {
-  ProviderOptions,
+  ProviderSettings,
   ProviderSecretOptions,
 } from './config-schema.js';
 
 export type ProviderFactoryConfig = {
   sdkProvider: string;
   sdkModel: string;
-  providerOptions: ProviderOptions;
+  providerSettings: ProviderSettings;
   providerSecretOptions: ProviderSecretOptions;
 };
 
@@ -36,7 +36,7 @@ export function createLanguageModel(
   check(providerFactory, `unsupported provider "${config.sdkProvider}"`);
 
   return providerFactory({
-    ...config.providerOptions,
+    ...config.providerSettings,
     ...config.providerSecretOptions,
   })(config.sdkModel);
 }

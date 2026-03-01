@@ -7,5 +7,5 @@ coverage/
 .env.*
 .DS_Store
 .idea/
+/*.iml
 *.tsbuildinfo
-/.ask

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { renderPrompt, renderShellScript } from '../render/render.js';
+import { renderPrompt, renderShellScript, colors } from '../render/render.js';
 import { SpinnerMessage } from './spinner-message.js';
 import type { ToolPartMessageRenderProps } from './tool-part-message.js';
 
@@ -15,41 +15,37 @@ export function ExecuteToolPartMessage({
     <Box flexDirection="column">
       {displayInput ? (
         <>
-          <Text>{displayInput}</Text>
+          <Text color={colors.text}>{displayInput}</Text>
           <Text> </Text>
         </>
       ) : null}
       {parsed?.stdout ? (
         <>
-          <Text dimColor>{parsed.stdout}</Text>
+          <Text color={colors.muted}>{parsed.stdout}</Text>
           <Text> </Text>
         </>
       ) : null}
       {parsed?.stderr ? (
         <>
-          <Text color="red" dimColor>
-            {parsed.stderr}
-          </Text>
+          <Text color={colors.error}>{parsed.stderr}</Text>
           <Text> </Text>
         </>
       ) : null}
       {parsed?.error ? (
         <>
-          <Text color="red">error: {parsed.error}</Text>
+          <Text color={colors.error}>error: {parsed.error}</Text>
           <Text> </Text>
         </>
       ) : null}
       {parsed?.exit ? (
         <>
-          <Text>{parsed.exit}</Text>
+          <Text color={colors.muted}>{parsed.exit}</Text>
           <Text> </Text>
         </>
       ) : null}
       {parsed?.signal ? (
         <>
-          <Text color="red" dimColor>
-            {parsed.signal}
-          </Text>
+          <Text color={colors.error}>{parsed.signal}</Text>
           <Text> </Text>
         </>
       ) : null}

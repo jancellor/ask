@@ -1,7 +1,9 @@
 import { highlight } from 'cli-highlight';
 import { marked } from 'marked';
 import TerminalRenderer from 'marked-terminal';
-import { highlightOptions, options, prompt } from './vs2015-theme.js';
+import { themes } from './themes.js';
+
+const { highlightOptions, options, prompt, colors } = themes.catppuccinMocha;
 
 // marked-terminal still types this as old CardinalOptions, but its current
 // implementation forwards the object to cli-highlight unchanged.
@@ -21,3 +23,4 @@ export function renderShellScript(text: string): string {
 }
 
 export const renderPrompt = prompt;
+export { colors };

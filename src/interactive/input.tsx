@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useInputState } from './use-input-state.js';
+import { colors } from '../render/render.js';
 
 const CLEAR_COMMAND = '/clear';
 const CURSOR_BLINK_MS = 600;
@@ -164,13 +165,13 @@ export function Input({
 
   return (
     <Box flexDirection="column">
-      <Text color="gray">{divider}</Text>
-      <Text>
+      <Text color={colors.muted}>{divider}</Text>
+      <Text color={colors.text}>
         {beforeCursor}
         {showCursor ? <Text inverse>{atCursor}</Text> : atCursor}
         {afterCursor}
       </Text>
-      <Text color="gray">{divider}</Text>
+      <Text color={colors.muted}>{divider}</Text>
     </Box>
   );
 }

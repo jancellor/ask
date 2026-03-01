@@ -1,6 +1,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { homedir } from 'node:os';
+import { colors } from '../render/render.js';
 
 interface WelcomeProps {
   model: string;
@@ -20,15 +21,16 @@ export function Welcome({ model, provider, variant }: WelcomeProps) {
   return (
     <Box flexDirection="column">
       <Text> </Text>
-      <Text>
-        Ask <Text dimColor>·</Text> {provider} <Text dimColor>·</Text> {model}
+      <Text color={colors.text}>
+        Ask <Text color={colors.muted}>·</Text> {provider}{' '}
+        <Text color={colors.muted}>·</Text> {model}
         {variant !== null && (
           <>
             {' '}
-            <Text dimColor>·</Text> {variant}
+            <Text color={colors.muted}>·</Text> {variant}
           </>
         )}{' '}
-        <Text dimColor>·</Text> {dir}
+        <Text color={colors.muted}>·</Text> {dir}
       </Text>
       <Text> </Text>
     </Box>

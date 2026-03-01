@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import type { Theme } from 'cli-highlight';
+import type { HighlightOptions } from 'cli-highlight';
 import type { TerminalRendererOptions } from 'marked-terminal';
 
 // Mapped from node_modules/highlight.js/styles/vs2015.css.
@@ -29,54 +29,56 @@ const SELECTOR = '#D7BA7D';
 const ADDITION_BG = '#144212';
 const DELETION_BG = '#660000';
 
-export const prompt = chalk.hex(ATTRIBUTE);
+const prompt = chalk.hex(ATTRIBUTE);
 
-const theme: Theme = {
-  keyword: chalk.hex(KEYWORD),
-  built_in: chalk.hex(BUILT_IN),
-  type: chalk.hex(BUILT_IN),
-  literal: chalk.hex(KEYWORD),
-  number: chalk.hex(NUMBER),
-  regexp: chalk.hex(REGEXP),
-  string: chalk.hex(STRING),
-  subst: chalk.hex(BASE_FG),
-  symbol: chalk.hex(KEYWORD),
-  class: chalk.hex(NUMBER),
-  function: chalk.hex(BASE_FG),
-  title: chalk.hex(BASE_FG),
-  params: chalk.hex(BASE_FG),
-  comment: chalk.hex(COMMENT).italic,
-  doctag: chalk.hex(DOCTAG),
-  meta: chalk.hex(META),
-  'meta-keyword': chalk.hex(META),
-  'meta-string': chalk.hex(STRING),
-  section: chalk.hex(SECTION),
-  tag: chalk.hex(META),
-  name: chalk.hex(KEYWORD),
-  'builtin-name': chalk.hex(ATTRIBUTE),
-  attr: chalk.hex(ATTRIBUTE),
-  attribute: chalk.hex(ATTRIBUTE),
-  variable: chalk.hex(VARIABLE),
-  bullet: chalk.hex(SELECTOR),
-  code: chalk.hex(BASE_FG),
-  emphasis: chalk.hex(BASE_FG).italic,
-  strong: chalk.hex(BASE_FG).bold,
-  formula: chalk.hex(BASE_FG),
-  link: chalk.hex(KEYWORD).underline,
-  quote: chalk.hex(COMMENT).italic,
-  'selector-tag': chalk.hex(SELECTOR),
-  'selector-id': chalk.hex(SELECTOR),
-  'selector-class': chalk.hex(SELECTOR),
-  'selector-attr': chalk.hex(SELECTOR),
-  'selector-pseudo': chalk.hex(SELECTOR),
-  'template-tag': chalk.hex(REGEXP),
-  'template-variable': chalk.hex(VARIABLE),
-  addition: chalk.bgHex(ADDITION_BG).hex(BASE_FG),
-  deletion: chalk.bgHex(DELETION_BG).hex(BASE_FG),
-  default: chalk.hex(BASE_FG),
+const highlightOptions: HighlightOptions = {
+  theme: {
+    keyword: chalk.hex(KEYWORD),
+    built_in: chalk.hex(BUILT_IN),
+    type: chalk.hex(BUILT_IN),
+    literal: chalk.hex(KEYWORD),
+    number: chalk.hex(NUMBER),
+    regexp: chalk.hex(REGEXP),
+    string: chalk.hex(STRING),
+    subst: chalk.hex(BASE_FG),
+    symbol: chalk.hex(KEYWORD),
+    class: chalk.hex(NUMBER),
+    function: chalk.hex(BASE_FG),
+    title: chalk.hex(BASE_FG),
+    params: chalk.hex(BASE_FG),
+    comment: chalk.hex(COMMENT).italic,
+    doctag: chalk.hex(DOCTAG),
+    meta: chalk.hex(META),
+    'meta-keyword': chalk.hex(META),
+    'meta-string': chalk.hex(STRING),
+    section: chalk.hex(SECTION),
+    tag: chalk.hex(META),
+    name: chalk.hex(KEYWORD),
+    'builtin-name': chalk.hex(ATTRIBUTE),
+    attr: chalk.hex(ATTRIBUTE),
+    attribute: chalk.hex(ATTRIBUTE),
+    variable: chalk.hex(VARIABLE),
+    bullet: chalk.hex(SELECTOR),
+    code: chalk.hex(BASE_FG),
+    emphasis: chalk.hex(BASE_FG).italic,
+    strong: chalk.hex(BASE_FG).bold,
+    formula: chalk.hex(BASE_FG),
+    link: chalk.hex(KEYWORD).underline,
+    quote: chalk.hex(COMMENT).italic,
+    'selector-tag': chalk.hex(SELECTOR),
+    'selector-id': chalk.hex(SELECTOR),
+    'selector-class': chalk.hex(SELECTOR),
+    'selector-attr': chalk.hex(SELECTOR),
+    'selector-pseudo': chalk.hex(SELECTOR),
+    'template-tag': chalk.hex(REGEXP),
+    'template-variable': chalk.hex(VARIABLE),
+    addition: chalk.bgHex(ADDITION_BG).hex(BASE_FG),
+    deletion: chalk.bgHex(DELETION_BG).hex(BASE_FG),
+    default: chalk.hex(BASE_FG),
+  },
 };
 
-export const options: TerminalRendererOptions = {
+const options: TerminalRendererOptions = {
   code: chalk.hex(BASE_FG),
   codespan: chalk.hex(STRING),
   blockquote: chalk.hex(COMMENT).italic,
@@ -106,6 +108,11 @@ export const options: TerminalRendererOptions = {
   },
 };
 
-export const highlightOptions = {
-  theme,
+const colors = { text: BASE_FG, muted: META, error: '#F44747' };
+
+export default {
+  prompt,
+  colors,
+  highlightOptions,
+  options,
 };

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
+import { colors } from '../render/render.js';
 import { SpinnerMessage } from './spinner-message.js';
 import type { ToolPartMessageRenderProps } from './tool-part-message.js';
 
@@ -12,19 +13,19 @@ export function GenericToolPartMessage({
     <Box flexDirection="column">
       {toolName ? (
         <>
-          <Text>{toolName}</Text>
+          <Text color={colors.text}>{toolName}</Text>
           <Text> </Text>
         </>
       ) : null}
       {input != null ? (
         <>
-          <Text dimColor>{formatGenericToolInput(input)}</Text>
+          <Text color={colors.muted}>{formatGenericToolInput(input)}</Text>
           <Text> </Text>
         </>
       ) : null}
       {output != null ? (
         <>
-          <Text dimColor>{formatGenericToolOutput(output)}</Text>
+          <Text color={colors.muted}>{formatGenericToolOutput(output)}</Text>
           <Text> </Text>
         </>
       ) : (

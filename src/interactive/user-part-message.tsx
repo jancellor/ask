@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { renderMarkdown } from '../render/render.js';
+import { renderMarkdown, colors } from '../render/render.js';
 
 export function UserPartMessage({ text }: { text: string }) {
   const width = Math.max(10, process.stdout.columns ?? 80);
@@ -9,9 +9,9 @@ export function UserPartMessage({ text }: { text: string }) {
 
   return (
     <Box flexDirection="column">
-      <Text color="gray">{divider}</Text>
-      <Text>{parsed}</Text>
-      <Text color="gray">{divider}</Text>
+      <Text color={colors.muted}>{divider}</Text>
+      <Text color={colors.text}>{parsed}</Text>
+      <Text color={colors.muted}>{divider}</Text>
       <Text> </Text>
     </Box>
   );

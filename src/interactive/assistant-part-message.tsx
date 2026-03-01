@@ -3,22 +3,15 @@ import { Box, Text } from 'ink';
 import { ABORTED_MESSAGE, ERROR_MESSAGE } from '../agent/agent.js';
 import { renderMarkdown, colors } from '../render/render.js';
 
-export function AssistantPartMessage({
-  text,
-  dim,
-}: {
-  text: string;
-  dim?: boolean;
-}) {
+export function AssistantPartMessage({ text }: { text: string }) {
   const isError = [ABORTED_MESSAGE, ERROR_MESSAGE].some((e) =>
     text.startsWith(e),
   );
-  const color = isError ? colors.error : dim ? colors.muted : colors.text;
-  const parsed = isError || dim ? text : renderMarkdown(text);
+  const parsed = isError ? text : renderMarkdown(text);
 
   return (
     <Box flexDirection="column">
-      <Text color={color}>{parsed}</Text>
+      <Text color={isError ? colors.error : undefined}>{parsed}</Text>
       <Text> </Text>
     </Box>
   );

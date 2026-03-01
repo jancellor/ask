@@ -51,7 +51,7 @@ export function Messages({
 
   const renderPart = (p: MessagePart) => {
     if (p.role === 'assistant' && p.type === 'text') {
-      return <AssistantPartMessage key={p.id} text={p.text} dim={false} />;
+      return <AssistantPartMessage key={p.id} text={p.text} />;
     }
     if (p.role === 'user') {
       if (p.type === 'text') {

@@ -29,7 +29,7 @@ const SELECTOR = '#D7BA7D';
 const ADDITION_BG = '#144212';
 const DELETION_BG = '#660000';
 
-export const prompt = chalk.hex(KEYWORD);
+export const prompt = chalk.hex(ATTRIBUTE);
 
 const theme: Theme = {
   keyword: chalk.hex(KEYWORD),
@@ -82,8 +82,8 @@ export const options: TerminalRendererOptions = {
   blockquote: chalk.hex(COMMENT).italic,
   heading: chalk.hex(KEYWORD).bold,
   firstHeading: chalk.hex(ATTRIBUTE).bold,
-  strong: chalk.hex(BUILT_IN).bold,
-  em: chalk.hex(BUILT_IN).italic,
+  strong: chalk.hex(ATTRIBUTE).bold,
+  em: chalk.hex(ATTRIBUTE).italic,
   del: chalk.hex(META).strikethrough,
   link: chalk.hex(KEYWORD),
   href: chalk.hex(KEYWORD).underline,

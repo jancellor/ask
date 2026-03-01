@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
-import { renderShellScript } from '../render/render.js';
+import { renderPrompt, renderShellScript } from '../render/render.js';
 import { SpinnerMessage } from './spinner-message.js';
 import type { ToolPartMessageRenderProps } from './tool-part-message.js';
 
@@ -104,7 +104,7 @@ function formatExecuteToolInput(input: unknown): string {
   if (input && typeof input === 'object') {
     const obj = input as Record<string, unknown>;
     if (typeof obj.command === 'string')
-      return `$ ${renderShellScript(obj.command)}`;
+      return `${renderPrompt('$ ')}${renderShellScript(obj.command)}`;
     return JSON.stringify(input, null, 2);
   }
   return String(input);

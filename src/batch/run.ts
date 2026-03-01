@@ -9,13 +9,13 @@ import {
 } from '../render/render.js';
 import { z } from 'zod';
 
-export const RenderTerminal = z.enum(['auto', 'always', 'never']);
-export type RenderTerminal = z.infer<typeof RenderTerminal>;
+export const RenderOutput = z.enum(['auto', 'always', 'never']);
+export type RenderOutput = z.infer<typeof RenderOutput>;
 
 type RunBatchOptions = {
   message?: string;
   agentOptions: AgentOptions;
-  renderTerminal: RenderTerminal;
+  renderOutput: RenderOutput;
 };
 
 export async function runBatch(options: RunBatchOptions): Promise<void> {
@@ -25,12 +25,12 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
     throw new Error('no message provided (pass [message] or pipe stdin)');
 
   const agent = await Agent.create(options.agentOptions);
-  const shouldRenderStdout = shouldRenderTerminalOutput(
-    options.renderTerminal,
+  const shouldRenderStdout = shouldRenderOutput(
+    options.renderOutput,
     process.stdout.isTTY,
   );
-  const shouldRenderStderr = shouldRenderTerminalOutput(
-    options.renderTerminal,
+  const shouldRenderStderr = shouldRenderOutput(
+    options.renderOutput,
     process.stderr.isTTY,
   );
 
@@ -65,11 +65,11 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
   console.log(output);
 }
 
-function shouldRenderTerminalOutput(
-  renderTerminalOption: RenderTerminal,
+function shouldRenderOutput(
+  renderOutputOption: RenderOutput,
   isTTY: boolean,
 ): boolean {
-  switch (renderTerminalOption) {
+  switch (renderOutputOption) {
     case 'always':
       return true;
     case 'never':

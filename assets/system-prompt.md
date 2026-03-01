@@ -67,9 +67,19 @@ sd -F -- "$OLD_BLOCK" "$NEW_BLOCK" path/to/file
 
 ## Background processes
 
-Use `tmux` when processes need to run in the background.
-For full output, use `capture-pane -S -` or `pipe-pane` to file.
-Prefix session names with "agents-".
+When you need a process to persist after shell script completion, use the pattern below.
+Otherwise only use `&` if the script calls `wait` before exiting (eg parallel tasks).
+This is so that processes that outlive scripts are intentional and killable.
+Generate a UUID to avoid naming collisions and aid cleanup.
+For example:
+
+```bash
+uuid=$(uuidgen)
+node server.ts > /tmp/agents-$uuid.log 2>&1 &
+echo $! > /tmp/agents-$uuid.pid
+cat /tmp/agents-$uuid.log
+kill "$(cat /tmp/agents-$uuid.pid)"
+```
 
 ## Subagents, task delegation, and context management
 

@@ -1,33 +1,23 @@
 # Ask
 
-A minimal coding agent.
+A minimal AI agent.
 
 ![Ask screenshot](https://raw.githubusercontent.com/jancellor/ask/main/demo/ask.screenshot.png)
 
-## Why
+## Introduction
 
-Ask is a small, working coding agent built as a demo project.
-It keeps the setup deliberately minimal: one shell execution tool and
-standard CLI utilities (`rg`, `sed`, `cat`, etc.) instead of a large custom tool surface.
-It supports AGENTS.md and skills.
-The goal is to show the core loop clearly and keep the code easy to read, run, and modify.
-It's a proof-of-concept.
+Ask is a minimal but fully functional AI agent for coding and general tasks.
+It has just one tool, the shell execution tool.
 
-Should you use this? Probably not for day-to-day work.
-It runs with full shell access, so it needs an external sandbox.
-Basic features are missing.
-Even so, the core loop works and is useful for real coding tasks.
-It should be easy to experiment with different task delegation patterns.
-For example, subagents are just self invocations `ask "msg"`.
-Usage is controlled by the system prompt.
-
-## Features
-
-- **Single tool.** One `execute` tool runs bash commands. No specialized file-editing, search, or filesystem tools.
-- **Interactive and scriptable.** Terminal UI with markdown rendering, or `ask "msg"` for batch mode use.
-- **Session persistence.** Conversations are saved as JSONL to `~/.ask/sessions/`.
-- **Subagent delegation.** An agent can simply invoke `ask "msg"` to isolate context or run in parallel.
-- **Project-level instructions.** `AGENTS.md` files provide project-specific context. `SKILL.md` files describe reusable capabilities.
+- Code editing is via shell execution and tools like `cat`, `sd`, `rg` and `fd`.
+- Supports `AGENTS.md` and agent skills in `.agents` directories.
+- Batch mode is first class, eg `cat code.js | ask "explain this"`.
+- Saves sessions to `~/.ask/sessions` and supports resuming/forking.
+- Background tasks just use `&` and system prompt guidance (`.pid` files, output redirection).
+- Subagent patterns are therefore just self-invocation, using background processes and reflective session inspection where appropriate.
+- Interactive mode (TUI) is basic but pretty-prints markdown and code.
+- Config system supports providers, models, and variants and passes merged JSON options directly to AI SDK.
+- Runs with full access – needs an external sandbox.
 
 ## Setup
 

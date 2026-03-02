@@ -111,6 +111,7 @@ It may be useful to make focused searches of the subagent context.
 
 ## Web
 
-For searching or fetching from the web, you may delegate to `codex`, another coding agent.
+For searching or fetching from the web, delegate to other coding agents.
 
     codex exec --skip-git-repo-check "What is the weather like in London today?"
+    claude -p "What is the weather like in London today?"

@@ -2,7 +2,7 @@
 
 A minimal coding agent.
 
-![Ask screenshot](https://github.com/jancellor/ask/blob/main/demo/ask.screenshot.png?raw=1)
+![Ask screenshot](https://raw.githubusercontent.com/jancellor/ask/main/demo/ask.screenshot.png)
 
 ## Why
 

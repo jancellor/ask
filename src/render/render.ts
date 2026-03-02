@@ -51,15 +51,16 @@ let withBackground = (highlighted: string, bg: (s: string) => string) =>
   bg(highlighted.replace(/\x1b\[0m/g, '\x1b[39m'));
 
 export function renderShellScript(text: string): string {
-  const heredocRegex = /<<'(\w+)'\n([\s\S]*?)\n\1(?=\n|$)/g;
+  const heredocRegex = /(<<\s*'(\w+)'\n)([\s\S]*?)\n\2(?=\n|$)/g;
   let result = '';
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = heredocRegex.exec(text)) !== null) {
-    const delimiter = match[1];
-    const content = match[2];
-    const contentStart = match.index + `<<'${delimiter}'\n`.length;
+    const opener = match[1];
+    const delimiter = match[2];
+    const content = match[3];
+    const contentStart = match.index + opener.length;
     const contentEnd = contentStart + content.length;
 
     // Bash segment up to and including the opener line

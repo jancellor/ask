@@ -19,7 +19,7 @@ export function App({ agent, onRequestShutdown }: AppProps) {
   };
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column">
       <Messages
         messages={messages}
         model={model}

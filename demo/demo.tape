@@ -4,10 +4,10 @@ Set Width 1200
 Set Height 900
 Set TypingSpeed 10ms
 
-Sleep 200ms
+Sleep 500ms
 Type "ask"
 Enter
-Sleep 800ms
-Type "Create a simple node server that reports the time. Run it in the background, test with curl, then shut it down and report back."
+Sleep 2000ms
+Type "Create an echo server with bun and run it in the background while you test it."
 Enter
 Sleep 30s

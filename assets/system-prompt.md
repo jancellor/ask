@@ -75,10 +75,10 @@ For example:
 
 ```bash
 uuid=$(uuidgen)
-node server.ts > /tmp/agents-$uuid.log 2>&1 &
-echo $! > /tmp/agents-$uuid.pid
-cat /tmp/agents-$uuid.log
-kill "$(cat /tmp/agents-$uuid.pid)"
+node myserver.js > /tmp/agents-myserver-$uuid.log 2>&1 &
+echo $! > /tmp/agents-myserver-$uuid.pid
+cat /tmp/agents-myserver-$uuid.log
+kill "$(cat /tmp/agents-myserver-$uuid.pid)"
 ```
 
 ## Subagents, task delegation, and context management

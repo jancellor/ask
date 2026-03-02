@@ -147,6 +147,10 @@ export function useInputState() {
     setState({ value: '', cursor: 0 });
   };
 
+  const setValue = (text: string) => {
+    setState({ value: text, cursor: text.length });
+  };
+
   const beforeCursor = value.slice(0, cursor);
   const atCursor = value[cursor] ?? ' ';
   const afterCursor = value.slice(Math.min(cursor + 1, value.length));
@@ -169,5 +173,6 @@ export function useInputState() {
     deleteWordBackward,
     insertText,
     clear,
+    setValue,
   };
 }

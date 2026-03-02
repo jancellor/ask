@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { useInputState } from './use-input-state.js';
+import { useHistory } from './use-history.js';
 import { colors } from '../render/render.js';
 
 const CLEAR_COMMAND = '/clear';
@@ -36,7 +37,10 @@ export function Input({
     deleteWordBackward,
     insertText,
     clear,
+    setValue,
   } = useInputState();
+
+  const history = useHistory();
 
   const [showCursor, setShowCursor] = useState(true);
   const [keyPulse, setKeyPulse] = useState(0);
@@ -107,6 +111,22 @@ export function Input({
       return;
     }
 
+    if (key.upArrow) {
+      const next = history.navigateUp(value);
+      if (next !== null) {
+        setValue(next);
+      }
+      return;
+    }
+
+    if (key.downArrow) {
+      const next = history.navigateDown();
+      if (next !== null) {
+        setValue(next);
+      }
+      return;
+    }
+
     if (key.leftArrow) {
       if (key.ctrl || key.meta) {
         moveWordLeft();
@@ -148,6 +168,7 @@ export function Input({
           console.log('[New session]\n');
         });
       } else {
+        history.onSubmit(message);
         void onSubmit(message);
       }
       return;

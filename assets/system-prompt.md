@@ -101,8 +101,9 @@ and therefore faster performance for tasks that are truly independent.
 ## Session storage
 
 When `ask` runs, messages are persisted to `~/.ask/sessions/<id>.jsonl` as AI SDK messages.
-IDs are UUIDs.
-Messages include additional metadata in a `_meta` property, including `id`, `parentId`, `uiHidden`, and `timestamp`.
+IDs must be UUIDs.
+Each line is an AI SDK `ModelMessage` with additional metadata in a `_meta` property.
+Conversations are usually linear message lists, but may be trees implied by `_meta.id` and `_meta.parentId`.
 When using subagents, consider passing an explicit session ID via `ask --resume <id> ...`.
 This allows you to inspect the context of the subagent, though note that
 usually you explicitly don't want the subagent context in your own.

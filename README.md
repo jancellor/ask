@@ -13,6 +13,7 @@ It has just one tool, the shell execution tool.
 - Supports `AGENTS.md` and agent skills in `.agents` directories.
 - Batch mode is first class, eg `cat code.js | ask "explain this"`.
 - Saves sessions to `~/.ask/sessions` and supports resuming/forking.
+- The agent knows where sessions are stored and what the format is.
 - Background tasks just use `&` and system prompt guidance (`.pid` files, output redirection).
 - Subagent patterns are therefore just self-invocation, using background processes and reflective session inspection where appropriate.
 - Interactive mode (TUI) is basic but pretty-prints markdown and code.

@@ -6,19 +6,24 @@ import { colors } from '../render/render.js';
 
 const CLEAR_COMMAND = '/clear';
 const CURSOR_BLINK_MS = 600;
+const DOUBLE_ESCAPE_MS = 300;
 
 type InputProps = {
   onSubmit: (message: string) => void | Promise<void>;
   onAbort: () => void;
   onClear: (beforeClear?: () => void) => Promise<void>;
+  onRewind: () => void;
   onRequestShutdown: () => void;
+  initialValue: string;
 };
 
 export function Input({
   onSubmit,
   onAbort,
   onClear,
+  onRewind,
   onRequestShutdown,
+  initialValue,
 }: InputProps) {
   const {
     value,
@@ -38,12 +43,19 @@ export function Input({
     insertText,
     clear,
     setValue,
-  } = useInputState();
+  } = useInputState(initialValue);
 
   const history = useHistory();
+  const [escapePending, setEscapePending] = useState(false);
 
   const [showCursor, setShowCursor] = useState(true);
   const [keyPulse, setKeyPulse] = useState(0);
+
+  useEffect(() => {
+    if (!escapePending) return;
+    const timer = setTimeout(() => setEscapePending(false), DOUBLE_ESCAPE_MS);
+    return () => clearTimeout(timer);
+  }, [escapePending]);
 
   useEffect(() => {
     let intervalId: ReturnType<typeof setInterval> | undefined;
@@ -67,7 +79,13 @@ export function Input({
     setKeyPulse((pulse) => pulse + 1);
 
     if (key.escape) {
-      onAbort();
+      if (value === '' && escapePending) {
+        setEscapePending(false);
+        onRewind();
+      } else {
+        onAbort();
+        if (value === '') setEscapePending(true);
+      }
       return;
     }
 

@@ -12,12 +12,13 @@ import {
 } from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import type { AskMessage } from './messages.js';
-import { Session, type SessionOptions } from './session.js';
+import { Session, type RewindNode, type SessionOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
 
 export type { AskMessage, AskMessageMeta } from './messages.js';
+export type { RewindNode } from './session.js';
 
 export interface AgentListener {
   onMessages?(messages: AskMessage[]): void | Promise<void>;
@@ -36,6 +37,7 @@ export class Agent {
   private systemPrompt: string;
   private tools: Tools;
   private session: Session;
+  // consider having SerializedAgent be a wrapper of plain Agent?
   private serializer = new Serializer();
   private controller: AbortController | null = null;
 
@@ -71,6 +73,10 @@ export class Agent {
     return this.session.sessionId;
   }
 
+  get currentHeadId(): string | null {
+    return this.session.currentHeadId;
+  }
+
   get model(): string {
     return this.config.model;
   }
@@ -83,6 +89,8 @@ export class Agent {
     return this.config.variant;
   }
 
+  // accept a callback here rather than use onMessages?
+  // replacing onClear and onRewind callbacks should be much simpler
   ask(message: string): Promise<void> {
     return this.serializer.submit(async () => {
       await this.addInitialMessages();
@@ -137,6 +145,15 @@ export class Agent {
       this.session = await this.session.cleared();
       await Promise.all(this.listeners.map((l) => l.onClear?.()));
     });
+  }
+
+  rewind(nextHeadId: string | null): void {
+    this.session.rewind(nextHeadId);
+    void Promise.all(this.listeners.map((l) => l.onMessages?.([])));
+  }
+
+  getRewindTree(): RewindNode[] {
+    return this.session.getRewindTree();
   }
 
   async fork(sessionId?: string, beforeFork?: () => void): Promise<void> {

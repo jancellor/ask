@@ -2,12 +2,18 @@ import { randomUUID } from 'node:crypto';
 import type { AskMessage } from './messages.js';
 import { SessionStore, type SessionStoreOptions } from './session-store.js';
 import type { ModelMessage } from 'ai';
+import { partition } from 'lodash-es';
 
 export type SessionOptions = SessionStoreOptions;
 
+export type RewindNode = {
+  message: AskMessage;
+  children: RewindNode[];
+};
+
 export class Session {
   private sessionStore: SessionStore;
-  private messagesById;
+  private messagesById: Map<string, AskMessage>;
   private headId: string | null = null;
 
   private constructor(
@@ -24,9 +30,20 @@ export class Session {
     const sessionStore = await SessionStore.create(options);
 
     const messagesById = new Map<string, AskMessage>();
-    let headId = null;
+    let headId: string | null = null;
     for (const message of await sessionStore.read()) {
       const id = message._meta.id;
+      if (messagesById.has(id)) {
+        throw new Error(`duplicate message ID: ${id}`);
+      }
+
+      const parentId = message._meta.parentId;
+      if (parentId !== null && !messagesById.has(parentId)) {
+        throw new Error(
+          `message ${id} references unknown or out-of-order parent: ${parentId}`,
+        );
+      }
+
       messagesById.set(id, message);
       headId = id;
     }
@@ -36,6 +53,10 @@ export class Session {
 
   get sessionId(): string {
     return this.sessionStore.sessionId;
+  }
+
+  get currentHeadId(): string | null {
+    return this.headId;
   }
 
   get messages(): AskMessage[] {
@@ -84,11 +105,54 @@ export class Session {
     this.sessionStore = await this.sessionStore.forked(sessionId);
   }
 
-  rewind(headId: string | null): void {
-    if (headId !== null && !this.messagesById.has(headId)) {
-      throw new Error(`unknown message ID: ${headId}`);
+  rewind(nextHeadId: string | null): void {
+    if (nextHeadId !== null && !this.messagesById.has(nextHeadId)) {
+      throw new Error(`unknown message ID: ${nextHeadId}`);
     }
-    this.headId = headId;
+    this.headId = nextHeadId;
+  }
+
+  getRewindTree(): RewindNode[] {
+    type SortableNode = {
+      containsHead: boolean;
+      age: number;
+      node: RewindNode;
+    };
+    const compareNodes = (a: SortableNode, b: SortableNode) => {
+      const chr = (a.containsHead ? 1 : 0) - (b.containsHead ? 1 : 0);
+      if (chr !== 0) return chr;
+      return b.age - a.age;
+    };
+    const sortedInsert = (nodes: SortableNode[], node: SortableNode) => {
+      let i = nodes.findIndex((n) => compareNodes(n, node) > 0);
+      if (i === -1) i = nodes.length;
+      nodes.splice(i, 0, node);
+    };
+
+    let nodes: SortableNode[] = [];
+    let messageAge = 0;
+    for (const message of [...this.messagesById.values()].toReversed()) {
+      const id = message._meta.id;
+
+      const [eq, ne] = partition(
+        nodes,
+        (n) => n.node.message._meta.parentId === id,
+      );
+      const childNodes = eq;
+      nodes = ne;
+
+      const children = childNodes.map((child) => child.node);
+      const childrenContHead = childNodes.some((child) => child.containsHead);
+      const childrenMinAge = Math.min(...childNodes.map((child) => child.age));
+      const containsHead = id === this.headId || childrenContHead;
+      const age = Math.min(messageAge++, childrenMinAge);
+
+      const pendingChild = { containsHead, age, node: { message, children } };
+
+      sortedInsert(nodes, pendingChild);
+    }
+
+    return nodes.map((child) => child.node);
   }
 
   private withMeta(messages: ModelMessage[], uiHidden: boolean): AskMessage[] {

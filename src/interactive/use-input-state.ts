@@ -5,8 +5,11 @@ type InputState = {
   cursor: number;
 };
 
-export function useInputState() {
-  const [state, setState] = useState<InputState>({ value: '', cursor: 0 });
+export function useInputState(initialValue: string) {
+  const [state, setState] = useState<InputState>({
+    value: initialValue,
+    cursor: initialValue.length,
+  });
   const { value, cursor } = state;
 
   const getWordCursor = (
@@ -93,9 +96,17 @@ export function useInputState() {
         return current;
       }
 
+      const previousNewline = current.value.lastIndexOf(
+        '\n',
+        current.cursor - 1,
+      );
+      const nextCursor = previousNewline === -1 ? 0 : previousNewline;
+
       return {
-        value: current.value.slice(current.cursor),
-        cursor: 0,
+        value:
+          current.value.slice(0, nextCursor) +
+          current.value.slice(current.cursor),
+        cursor: nextCursor,
       };
     });
   };
@@ -106,9 +117,15 @@ export function useInputState() {
         return current;
       }
 
+      const nextNewline = current.value.indexOf('\n', current.cursor);
+      const nextCursor =
+        nextNewline === -1 ? current.value.length : nextNewline + 1;
+
       return {
         ...current,
-        value: current.value.slice(0, current.cursor),
+        value:
+          current.value.slice(0, current.cursor) +
+          current.value.slice(nextCursor),
       };
     });
   };
@@ -152,8 +169,12 @@ export function useInputState() {
   };
 
   const beforeCursor = value.slice(0, cursor);
-  const atCursor = value[cursor] ?? ' ';
-  const afterCursor = value.slice(Math.min(cursor + 1, value.length));
+  const currentChar = value[cursor];
+  const atCursor = currentChar === '\n' ? ' ' : (currentChar ?? ' ');
+  const afterCursor =
+    currentChar === '\n'
+      ? value.slice(cursor)
+      : value.slice(Math.min(cursor + 1, value.length));
 
   return {
     value,

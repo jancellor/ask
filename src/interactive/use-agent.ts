@@ -10,6 +10,7 @@ type UseAgentResult = {
   sendMessage: (message: string) => Promise<void>;
   abort: () => void;
   clear: (beforeClear?: () => void) => Promise<void>;
+  rewind: (nextHeadId: string | null) => void;
 };
 
 export function useAgent(agent: Agent): UseAgentResult {
@@ -39,6 +40,11 @@ export function useAgent(agent: Agent): UseAgentResult {
     [agent],
   );
 
+  const rewind = useCallback(
+    (nextHeadId: string | null) => agent.rewind(nextHeadId),
+    [agent],
+  );
+
   return {
     messages,
     model: agent.model,
@@ -47,5 +53,6 @@ export function useAgent(agent: Agent): UseAgentResult {
     sendMessage,
     abort,
     clear,
+    rewind,
   };
 }

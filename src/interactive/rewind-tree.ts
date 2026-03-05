@@ -1,4 +1,4 @@
-import { type Agent, AskMessage, type RewindNode } from '../agent/agent.js';
+import { type Agent, AskMessage, type MessageNode } from '../agent/agent.js';
 
 export type FlattenedRow = {
   id: string;
@@ -10,13 +10,13 @@ export type FlattenedRow = {
 };
 
 export function flattenTree(agent: Agent): FlattenedRow[] {
-  const roots = agent.getRewindTree();
+  const roots = agent.getMessageTree();
   const headId = agent.currentHeadId;
   return roots.flatMap((root) => renderNode(root, headId, 0, 0));
 }
 
 function renderNode(
-  node: RewindNode,
+  node: MessageNode,
   headId: string | null,
   a: number,
   b: number,

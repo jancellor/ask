@@ -6,25 +6,18 @@ import { partition } from 'lodash-es';
 
 export type SessionOptions = SessionStoreOptions;
 
-export type RewindNode = {
+export type MessageNode = {
+  age: number;
   message: AskMessage;
-  children: RewindNode[];
+  children: MessageNode[];
 };
 
 export class Session {
-  private sessionStore: SessionStore;
-  private messagesById: Map<string, AskMessage>;
-  private headId: string | null = null;
-
   private constructor(
-    messagesById: Map<string, AskMessage>,
-    headId: string | null,
-    sessionStore: SessionStore,
-  ) {
-    this.messagesById = messagesById;
-    this.headId = headId;
-    this.sessionStore = sessionStore;
-  }
+    private messagesById: Map<string, AskMessage>,
+    private headId: string | null,
+    private sessionStore: SessionStore,
+  ) {}
 
   static async create(options: SessionOptions): Promise<Session> {
     const sessionStore = await SessionStore.create(options);
@@ -61,10 +54,11 @@ export class Session {
 
   get messages(): AskMessage[] {
     const messages: AskMessage[] = [];
-    let currentId: string | null = this.headId;
+    let currentId = this.headId;
     const seen = new Set<string>();
     while (currentId) {
       if (seen.has(currentId)) {
+        // invariant should already be enforced, but inf loop would be horrible
         throw new Error(`cycle detected in message graph at: ${currentId}`);
       }
       seen.add(currentId);
@@ -112,57 +106,38 @@ export class Session {
     this.headId = nextHeadId;
   }
 
-  getRewindTree(): RewindNode[] {
-    type SortableNode = {
-      containsHead: boolean;
-      age: number;
-      node: RewindNode;
-    };
-    const compareNodes = (a: SortableNode, b: SortableNode) => {
-      const chr = (a.containsHead ? 1 : 0) - (b.containsHead ? 1 : 0);
-      if (chr !== 0) return chr;
-      return b.age - a.age;
-    };
-    const sortedInsert = (nodes: SortableNode[], node: SortableNode) => {
-      let i = nodes.findIndex((n) => compareNodes(n, node) > 0);
+  getMessageTree(): MessageNode[] {
+    const sortedInsert = (nodes: MessageNode[], node: MessageNode) => {
+      let i = nodes.findIndex((n) => n.age < node.age);
       if (i === -1) i = nodes.length;
       nodes.splice(i, 0, node);
     };
 
-    let nodes: SortableNode[] = [];
+    let nodes: MessageNode[] = [];
     let messageAge = 0;
     for (const message of [...this.messagesById.values()].toReversed()) {
-      const id = message._meta.id;
-
       const [eq, ne] = partition(
         nodes,
-        (n) => n.node.message._meta.parentId === id,
+        (n) => n.message._meta.parentId === message._meta.id,
       );
-      const childNodes = eq;
+      const children = eq;
       nodes = ne;
 
-      const children = childNodes.map((child) => child.node);
-      const childrenContHead = childNodes.some((child) => child.containsHead);
-      const childrenMinAge = Math.min(...childNodes.map((child) => child.age));
-      const containsHead = id === this.headId || childrenContHead;
-      const age = Math.min(messageAge++, childrenMinAge);
+      const age = Math.min(messageAge++, ...children.map((child) => child.age));
 
-      const pendingChild = { containsHead, age, node: { message, children } };
-
-      sortedInsert(nodes, pendingChild);
+      sortedInsert(nodes, { age, message, children });
     }
 
-    return nodes.map((child) => child.node);
+    return nodes;
   }
 
   private withMeta(messages: ModelMessage[], uiHidden: boolean): AskMessage[] {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
-    const initialParent = this.headId;
 
     for (const [index, message] of messages.entries()) {
       const id = randomUUID();
-      const parent = index === 0 ? initialParent : appended[index - 1]._meta.id;
+      const parent = index === 0 ? this.headId : appended[index - 1]._meta.id;
 
       appended.push({
         ...message,

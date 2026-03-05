@@ -12,13 +12,13 @@ import {
 } from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import type { AskMessage } from './messages.js';
-import { Session, type RewindNode, type SessionOptions } from './session.js';
+import { Session, type MessageNode, type SessionOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
 import { Tools } from './tools.js';
 
 export type { AskMessage, AskMessageMeta } from './messages.js';
-export type { RewindNode } from './session.js';
+export type { MessageNode } from './session.js';
 
 export interface AgentListener {
   onMessages?(messages: AskMessage[]): void | Promise<void>;
@@ -152,8 +152,8 @@ export class Agent {
     void Promise.all(this.listeners.map((l) => l.onMessages?.([])));
   }
 
-  getRewindTree(): RewindNode[] {
-    return this.session.getRewindTree();
+  getMessageTree(): MessageNode[] {
+    return this.session.getMessageTree();
   }
 
   async fork(sessionId?: string, beforeFork?: () => void): Promise<void> {

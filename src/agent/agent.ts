@@ -147,8 +147,8 @@ export class Agent {
     });
   }
 
-  rewind(nextHeadId: string | null): void {
-    this.session.rewind(nextHeadId);
+  rewind(rewindId: string | null): void {
+    this.session.rewind(rewindId);
     void Promise.all(this.listeners.map((l) => l.onMessages?.([])));
   }
 

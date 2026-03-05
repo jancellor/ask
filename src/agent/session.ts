@@ -99,11 +99,22 @@ export class Session {
     this.sessionStore = await this.sessionStore.forked(sessionId);
   }
 
-  rewind(nextHeadId: string | null): void {
-    if (nextHeadId !== null && !this.messagesById.has(nextHeadId)) {
-      throw new Error(`unknown message ID: ${nextHeadId}`);
+  rewind(rewindId: string | null): void {
+    while (rewindId !== null) {
+      const message = this.messagesById.get(rewindId);
+      if (!message) {
+        throw new Error(`unknown message ID: ${rewindId}`);
+      }
+      const hasToolCall =
+        Array.isArray(message.content) &&
+        message.content.some((part) => part.type === 'tool-call');
+      const isAssistant = message.role === 'assistant';
+      // We should support rewinding to user heads (e.g. just after the first generated AGENTS.md message),
+      // but first refactor UI pending-state handling since queued asks are not explicitly tracked as waiting.
+      if (isAssistant && !hasToolCall) break;
+      rewindId = message._meta.parentId;
     }
-    this.headId = nextHeadId;
+    this.headId = rewindId;
   }
 
   getMessageTree(): MessageNode[] {

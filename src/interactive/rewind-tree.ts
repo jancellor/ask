@@ -1,27 +1,41 @@
 import { type Agent, AskMessage, type MessageNode } from '../agent/agent.js';
 
+export const REWIND_FILTERS = [
+  'user',
+  'user-assistant',
+  'user-assistant-tool',
+  'all',
+] as const;
+
+export type RewindFilter = (typeof REWIND_FILTERS)[number];
+
 export type FlattenedRow = {
-  id: string;
+  role: AskMessage['role'];
+  parentId: string | null;
+  prefillText: string;
   label: string;
-  nextHeadId: string | null;
-  prefillText?: string;
   treePrefix: string;
   isCurrentHead: boolean;
 };
 
-export function flattenTree(agent: Agent): FlattenedRow[] {
+export function flattenTree(
+  agent: Agent,
+  filter: RewindFilter,
+): FlattenedRow[] {
   const roots = agent.getMessageTree();
   const headId = agent.currentHeadId;
-  return roots.flatMap((root) => renderNode(root, headId, 0, 0));
+  return roots.flatMap((root) => renderNode(root, headId, filter, 0, 0));
 }
 
 function renderNode(
   node: MessageNode,
   headId: string | null,
+  filter: RewindFilter,
   a: number,
   b: number,
 ): FlattenedRow[] {
-  const visible = isVisible(node.message);
+  const visible = isVisible(node.message, filter);
+  const shouldAppendRow = node.children.length === 0 && node.age > 0;
   const childRows = node.children.flatMap((child, i) => {
     const l = node.children.length;
     const [childA, childB] = visible
@@ -35,28 +49,32 @@ function renderNode(
           : i < l - 1
             ? [a + b, 1]
             : [a + b, 0];
-    return renderNode(child, headId, childA, childB);
+    return renderNode(child, headId, filter, childA, childB);
   });
-  const prefix = getPrefix(a, b, childRows.length > 0 ? 1 : 0);
-  const label = getDisplayLabel(node.message);
-  const visibleUserMessage = isVisibleUserMessage(node.message);
-  const row = !visible
-    ? []
-    : [
-        {
-          id: node.message._meta.id,
-          label: label,
-          nextHeadId: visibleUserMessage
-            ? node.message._meta.parentId
-            : node.message._meta.id,
-          prefillText: visibleUserMessage
-            ? getMessageText(node.message)
-            : undefined,
-          treePrefix: prefix,
-          isCurrentHead: node.message._meta.id === headId,
-        },
-      ];
-  return [...row, ...childRows];
+  const hasRealOrAppendedChild = childRows.length > 0 || shouldAppendRow;
+  const { prefillText, displayLabel } = getMessageText(node.message);
+  const row = {
+    role: node.message.role,
+    parentId: node.message._meta.parentId,
+    prefillText,
+    label: displayLabel,
+    treePrefix: getPrefix(a, b, hasRealOrAppendedChild ? 1 : 0),
+    isCurrentHead: node.message._meta.id === headId,
+  };
+  const appendedRow = {
+    role: node.message.role,
+    parentId: node.message._meta.id,
+    prefillText: '',
+    label: '',
+    treePrefix: getPrefix(a + b, 0, 0),
+    isCurrentHead: node.message._meta.id === headId,
+  };
+
+  return [
+    ...(!visible ? [] : [row]),
+    ...(shouldAppendRow ? [appendedRow] : []),
+    ...childRows,
+  ];
 }
 
 /**
@@ -73,31 +91,38 @@ export function getPrefix(a: number, b: number, c: number) {
   );
 }
 
-function getMessageText(message: AskMessage): string {
+function getMessageText(message: AskMessage): {
+  prefillText: string;
+  displayLabel: string;
+} {
   const content = message.content;
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
-  return content
-    .filter(
-      (part): part is { type: 'text'; text: string } =>
-        part?.type === 'text' && typeof part.text === 'string',
-    )
-    .map((part) => part.text)
-    .join('\n');
+  let prefillText;
+  if (typeof content === 'string') prefillText = content;
+  else if (!Array.isArray(content)) prefillText = '';
+  else
+    prefillText = content
+      .filter(
+        (part): part is { type: 'text'; text: string } =>
+          part?.type === 'text' && typeof part.text === 'string',
+      )
+      .map((part) => part.text)
+      .join('\n');
+  const displayLabel = prefillText || `[${message.role}]`;
+  return { prefillText, displayLabel };
 }
 
-function getDisplayLabel(message: AskMessage): string {
-  const text = getMessageText(message).trim();
-  if (text) return text;
-  return `[${message.role}]`;
-}
-
-function isVisible(message: AskMessage): boolean {
-  return !message._meta.uiHidden && message.role === 'user';
-}
-
-function isVisibleUserMessage(message: AskMessage): boolean {
-  return message.role === 'user' && isVisible(message);
+function isVisible(message: AskMessage, filter: RewindFilter): boolean {
+  if (filter !== 'all' && message._meta.uiHidden) return false;
+  if (filter === 'all') return true;
+  if (filter === 'user') return message.role === 'user';
+  if (filter === 'user-assistant') {
+    return message.role === 'user' || message.role === 'assistant';
+  }
+  return (
+    message.role === 'user' ||
+    message.role === 'assistant' ||
+    message.role === 'tool'
+  );
 }
 
 function cell(u: boolean, d: boolean, l: boolean, r: boolean) {

@@ -36,8 +36,8 @@ export function App({ agent, onRequestShutdown }: AppProps) {
   };
 
   const handleRewindSelect = (selection: RewindSelection) => {
-    rewind(selection.nextHeadId);
-    setPrefillText(selection.prefillText ?? '');
+    rewind(selection.rewindId);
+    setPrefillText(selection.prefillText);
     setRewindOpen(false);
   };
 

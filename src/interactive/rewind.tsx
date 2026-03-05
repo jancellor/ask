@@ -2,11 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { type Agent } from '../agent/agent.js';
 import { colors } from '../render/render.js';
-import { flattenTree } from './rewind-tree.js';
+import {
+  REWIND_FILTERS,
+  type RewindFilter,
+  flattenTree,
+} from './rewind-tree.js';
 
 export type RewindSelection = {
-  nextHeadId: string | null;
-  prefillText?: string;
+  rewindId: string | null;
+  prefillText: string;
 };
 
 type RewindProps = {
@@ -28,7 +32,7 @@ function getTerminalSize(): TerminalSize {
 }
 
 function firstLine(text: string, maxWidth: number): string {
-  const line = text.split('\n')[0] ?? '';
+  const line = text.split(/\r\n|[\r\n]/, 1)[0] ?? '';
   const chars = Array.from(line);
   if (chars.length <= maxWidth) return line;
   if (maxWidth <= 3) return '.'.repeat(maxWidth);
@@ -36,19 +40,16 @@ function firstLine(text: string, maxWidth: number): string {
 }
 
 export function Rewind({ agent, onClose, onSelect }: RewindProps) {
-  const rows = flattenTree(agent);
+  const [filter, setFilter] = useState<RewindFilter>('user');
+  const rows = flattenTree(agent, filter);
   const [terminalSize, setTerminalSize] = useState<TerminalSize>(() =>
     getTerminalSize(),
   );
-  const [cursor, setCursor] = useState<number>(() => {
-    for (let i = rows.length - 1; i >= 0; i--) {
-      if (rows[i]!.isCurrentHead) return i;
-    }
-    return Math.max(0, rows.length - 1);
-  });
+  const [cursor, setCursor] = useState<number>(0);
   const [scrollOffset, setScrollOffset] = useState(0);
 
-  const clamp = (n: number) => Math.max(0, Math.min(rows.length - 1, n));
+  const clamp = (n: number) =>
+    rows.length === 0 ? 0 : Math.max(0, Math.min(rows.length - 1, n));
 
   useEffect(() => {
     const handleResize = () => {
@@ -60,6 +61,23 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
       process.stdout.off('resize', handleResize);
     };
   }, []);
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setCursor(0);
+      setScrollOffset(0);
+      return;
+    }
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i]!.isCurrentHead) {
+        setCursor(i);
+        setScrollOffset(0);
+        return;
+      }
+    }
+    setCursor(rows.length - 1);
+    setScrollOffset(0);
+  }, [filter, rows.length]);
 
   const width = terminalSize.columns;
   const divider = '─'.repeat(width);
@@ -91,12 +109,22 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
     }
 
     if (key.upArrow) {
+      if (rows.length === 0) return;
       setCursor((c) => clamp(c - 1));
       return;
     }
 
     if (key.downArrow) {
+      if (rows.length === 0) return;
       setCursor((c) => clamp(c + 1));
+      return;
+    }
+
+    if (key.ctrl || key.meta) return;
+    if (_.toLowerCase() === 'f') {
+      const i = REWIND_FILTERS.indexOf(filter);
+      const next = REWIND_FILTERS[(i + 1) % REWIND_FILTERS.length];
+      setFilter(next);
       return;
     }
 
@@ -104,7 +132,7 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
       const row = rows[cursor];
       if (!row) return;
       onSelect({
-        nextHeadId: row.nextHeadId,
+        rewindId: row.parentId,
         prefillText: row.prefillText,
       });
       return;
@@ -131,8 +159,15 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
       })}
       <Text color={colors.muted}>{divider}</Text>
       <Text color={colors.muted}>
-        {'↑↓ navigate   enter select   esc cancel'}
+        {`↑↓ navigate   enter edit   f filter (${getFilterLabel(filter)})   esc cancel`}
       </Text>
     </Box>
   );
+}
+
+function getFilterLabel(filter: RewindFilter): string {
+  if (filter === 'user') return 'user';
+  if (filter === 'user-assistant') return 'user+assistant';
+  if (filter === 'user-assistant-tool') return 'user+assistant+tool';
+  return 'all';
 }

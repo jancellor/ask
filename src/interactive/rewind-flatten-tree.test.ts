@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getPrefix } from './rewind-tree.js';
+import { getPrefix } from './rewind-flatten-tree.js';
 
 describe('getPrefix', () => {
   const data = [

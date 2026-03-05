@@ -1,27 +1,19 @@
 import { type Agent, AskMessage, type MessageNode } from '../agent/agent.js';
 
-export const REWIND_FILTERS = [
-  'user',
-  'user-assistant',
-  'user-assistant-tool',
-  'all',
-] as const;
+export const REWIND_FILTERS = ['user', 'user-agent'] as const;
 
 export type RewindFilter = (typeof REWIND_FILTERS)[number];
 
-export type FlattenedRow = {
+export type RewindRow = {
   role: AskMessage['role'];
   parentId: string | null;
+  parentIsHead: boolean;
   prefillText: string;
   label: string;
   treePrefix: string;
-  isCurrentHead: boolean;
 };
 
-export function flattenTree(
-  agent: Agent,
-  filter: RewindFilter,
-): FlattenedRow[] {
+export function flattenTree(agent: Agent, filter: RewindFilter): RewindRow[] {
   const roots = agent.getMessageTree();
   const headId = agent.currentHeadId;
   return roots.flatMap((root) => renderNode(root, headId, filter, 0, 0));
@@ -33,8 +25,9 @@ function renderNode(
   filter: RewindFilter,
   a: number,
   b: number,
-): FlattenedRow[] {
-  const visible = isVisible(node.message, filter);
+): RewindRow[] {
+  const { prefillText, displayLabel } = getMessageText(node.message);
+  const visible = isVisible(node.message, filter, displayLabel);
   const shouldAppendRow = node.children.length === 0 && node.age > 0;
   const childRows = node.children.flatMap((child, i) => {
     const l = node.children.length;
@@ -52,22 +45,21 @@ function renderNode(
     return renderNode(child, headId, filter, childA, childB);
   });
   const hasRealOrAppendedChild = childRows.length > 0 || shouldAppendRow;
-  const { prefillText, displayLabel } = getMessageText(node.message);
   const row = {
     role: node.message.role,
     parentId: node.message._meta.parentId,
+    parentIsHead: node.message._meta.parentId === headId,
     prefillText,
     label: displayLabel,
     treePrefix: getPrefix(a, b, hasRealOrAppendedChild ? 1 : 0),
-    isCurrentHead: node.message._meta.id === headId,
   };
   const appendedRow = {
     role: node.message.role,
     parentId: node.message._meta.id,
+    parentIsHead: node.message._meta.id === headId,
     prefillText: '',
     label: '',
     treePrefix: getPrefix(a + b, 0, 0),
-    isCurrentHead: node.message._meta.id === headId,
   };
 
   return [
@@ -103,26 +95,34 @@ function getMessageText(message: AskMessage): {
     prefillText = content
       .filter(
         (part): part is { type: 'text'; text: string } =>
-          part?.type === 'text' && typeof part.text === 'string',
+          part.type === 'text' && typeof part.text === 'string',
       )
       .map((part) => part.text)
       .join('\n');
-  const displayLabel = prefillText || `[${message.role}]`;
+  const displayLabel = firstLine(prefillText);
   return { prefillText, displayLabel };
 }
 
-function isVisible(message: AskMessage, filter: RewindFilter): boolean {
-  if (filter !== 'all' && message._meta.uiHidden) return false;
-  if (filter === 'all') return true;
-  if (filter === 'user') return message.role === 'user';
-  if (filter === 'user-assistant') {
-    return message.role === 'user' || message.role === 'assistant';
+function firstLine(text: string): string {
+  return text.split(/\r\n|[\r\n]/, 1)[0] ?? '';
+}
+
+function isVisible(
+  message: AskMessage,
+  filter: RewindFilter,
+  displayLabel: string,
+): boolean {
+  const role = message.role;
+  const uiHidden = message._meta.uiHidden;
+  switch (filter) {
+    case 'user':
+      return !uiHidden && role === 'user';
+    case 'user-agent':
+      return (
+        !uiHidden &&
+        (role === 'user' || (role === 'assistant' && !!displayLabel))
+      );
   }
-  return (
-    message.role === 'user' ||
-    message.role === 'assistant' ||
-    message.role === 'tool'
-  );
 }
 
 function cell(u: boolean, d: boolean, l: boolean, r: boolean) {

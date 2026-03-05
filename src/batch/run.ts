@@ -45,7 +45,7 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
       for (const msg of newMessages) {
         if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
         for (const part of msg.content) {
-          if (part?.type === 'tool-call') {
+          if (part.type === 'tool-call') {
             console.error(
               formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
             );
@@ -165,7 +165,7 @@ function extractFinalResponse(messages: AskMessage[]): string {
   // Handle array content - extract text parts
   if (Array.isArray(content)) {
     return content
-      .filter((p): p is TextPart => p?.type === 'text')
+      .filter((p): p is TextPart => p.type === 'text')
       .map((p) => p.text)
       .join('');
   }

@@ -6,7 +6,7 @@ import {
   REWIND_FILTERS,
   type RewindFilter,
   flattenTree,
-} from './rewind-tree.js';
+} from './rewind-flatten-tree.js';
 
 export type RewindSelection = {
   rewindId: string | null;
@@ -31,12 +31,10 @@ function getTerminalSize(): TerminalSize {
   };
 }
 
-function firstLine(text: string, maxWidth: number): string {
-  const line = text.split(/\r\n|[\r\n]/, 1)[0] ?? '';
-  const chars = Array.from(line);
-  if (chars.length <= maxWidth) return line;
+function truncateToWidth(text: string, maxWidth: number): string {
+  if (text.length <= maxWidth) return text;
   if (maxWidth <= 3) return '.'.repeat(maxWidth);
-  return chars.slice(0, maxWidth - 3).join('') + '...';
+  return text.slice(0, maxWidth - 3) + '...';
 }
 
 export function Rewind({ agent, onClose, onSelect }: RewindProps) {
@@ -69,7 +67,7 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
       return;
     }
     for (let i = rows.length - 1; i >= 0; i--) {
-      if (rows[i]!.isCurrentHead) {
+      if (rows[i]!.parentIsHead) {
         setCursor(i);
         setScrollOffset(0);
         return;
@@ -147,7 +145,7 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
         const selected = rowIndex === cursor;
         const prefix = selected ? '> ' : '  ';
         const max = Math.max(1, width - prefix.length - row.treePrefix.length);
-        const text = firstLine(row.label, max);
+        const text = truncateToWidth(row.label, max);
 
         return (
           <Text key={rowIndex} color={selected ? colors.text : colors.muted}>
@@ -167,7 +165,5 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
 
 function getFilterLabel(filter: RewindFilter): string {
   if (filter === 'user') return 'user';
-  if (filter === 'user-assistant') return 'user+assistant';
-  if (filter === 'user-assistant-tool') return 'user+assistant+tool';
-  return 'all';
+  return 'user+agent';
 }

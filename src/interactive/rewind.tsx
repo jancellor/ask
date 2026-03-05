@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { type Agent } from '../agent/agent.js';
-import type { AskMessage } from '../agent/messages.js';
 import { colors } from '../render/render.js';
+import { flattenTree } from './rewind-tree.js';
 
 export type RewindSelection = {
   nextHeadId: string | null;
@@ -29,109 +29,10 @@ function getTerminalSize(): TerminalSize {
 
 function firstLine(text: string, maxWidth: number): string {
   const line = text.split('\n')[0] ?? '';
-  return line.length > maxWidth ? line.slice(0, maxWidth - 1) + '…' : line;
-}
-
-type FlattenedRow = {
-  id: string;
-  label: string;
-  nextHeadId: string | null;
-  prefillText?: string;
-  branchColumns: boolean[];
-  connector: 'root' | 'branch' | 'continuation';
-  isCurrentHead: boolean;
-};
-
-function getMessageText(message: AskMessage): string {
-  const content = message.content;
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return '';
-  return content
-    .filter(
-      (part): part is { type: 'text'; text: string } =>
-        part?.type === 'text' && typeof part.text === 'string',
-    )
-    .map((part) => part.text)
-    .join('\n');
-}
-
-function getDisplayLabel(message: AskMessage): string {
-  const text = getMessageText(message).trim();
-  if (text) return text;
-  return `[${message.role}]`;
-}
-
-function isVisibleUserMessage(message: AskMessage): boolean {
-  return message.role === 'user' && !message._meta.uiHidden;
-}
-
-function getTreePrefix(row: FlattenedRow): string {
-  let prefix = '';
-  for (const hasLaterSibling of row.branchColumns) {
-    prefix += hasLaterSibling ? '│ ' : '  ';
-  }
-  prefix += '│ ';
-  if (row.connector === 'branch') {
-    prefix += '├─';
-  } else if (row.connector === 'continuation') {
-    prefix += '│ ';
-  }
-  return prefix + '  ';
-}
-
-function flattenTree(agent: Agent): FlattenedRow[] {
-  const rows: FlattenedRow[] = [];
-  const roots = agent.getRewindTree();
-  const currentHeadId = agent.currentHeadId;
-
-  const visit = (
-    node: (typeof roots)[number],
-    branchColumns: boolean[],
-    connector: FlattenedRow['connector'],
-  ) => {
-    const label = getDisplayLabel(node.message);
-    const visibleUserMessage = isVisibleUserMessage(node.message);
-
-    rows.push({
-      id: node.message._meta.id,
-      label,
-      nextHeadId: visibleUserMessage
-        ? node.message._meta.parentId
-        : node.message._meta.id,
-      prefillText: visibleUserMessage
-        ? getMessageText(node.message)
-        : undefined,
-      branchColumns,
-      connector,
-      isCurrentHead: node.message._meta.id === currentHeadId,
-    });
-
-    node.children.forEach((child, index) => {
-      const isLastChild = index === node.children.length - 1;
-      visit(
-        child,
-        isLastChild ? branchColumns : [...branchColumns, true],
-        isLastChild ? 'continuation' : 'branch',
-      );
-    });
-  };
-
-  roots.forEach((root, index) => {
-    visit(root, index === roots.length - 1 ? [] : [true], 'root');
-  });
-
-  if (rows.length > 0) return rows;
-
-  return [
-    {
-      id: 'rewind-start',
-      label: '(start)',
-      nextHeadId: null,
-      branchColumns: [],
-      connector: 'root',
-      isCurrentHead: currentHeadId === null,
-    },
-  ];
+  const chars = Array.from(line);
+  if (chars.length <= maxWidth) return line;
+  if (maxWidth <= 3) return '.'.repeat(maxWidth);
+  return chars.slice(0, maxWidth - 3).join('') + '...';
 }
 
 export function Rewind({ agent, onClose, onSelect }: RewindProps) {
@@ -162,7 +63,6 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
 
   const width = terminalSize.columns;
   const divider = '─'.repeat(width);
-  const textWidth = Math.max(20, width - 6);
   const chromeHeight = 3;
   const remainingHeight = terminalSize.rows - chromeHeight;
   const maxVisibleRows = Math.max(1, Math.min(16, remainingHeight));
@@ -218,13 +118,13 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
         const rowIndex = scrollOffset + i;
         const selected = rowIndex === cursor;
         const prefix = selected ? '> ' : '  ';
-        const treePrefix = getTreePrefix(row);
-        const text = firstLine(row.label, textWidth);
+        const max = Math.max(1, width - prefix.length - row.treePrefix.length);
+        const text = firstLine(row.label, max);
 
         return (
           <Text key={rowIndex} color={selected ? colors.text : colors.muted}>
             {prefix}
-            <Text color={colors.muted}>{treePrefix}</Text>
+            <Text color={colors.muted}>{row.treePrefix}</Text>
             {text}
           </Text>
         );

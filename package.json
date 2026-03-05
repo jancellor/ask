@@ -21,6 +21,7 @@
     "build": "tsc",
     "watch": "tsc --watch",
     "dev": "tsx src/cli.ts",
+    "test": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -74,6 +75,7 @@
     "@types/react": "^19.2.14",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

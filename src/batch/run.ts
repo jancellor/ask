@@ -20,7 +20,7 @@ type RunBatchOptions = {
 
 export async function runBatch(options: RunBatchOptions): Promise<void> {
   const stdin = !process.stdin.isTTY ? await readStdin() : undefined;
-  const message = [stdin, options.message].filter(Boolean).join('\n\n');
+  const message = [options.message, stdin].filter(Boolean).join('\n\n');
   if (!message)
     throw new Error('no message provided (pass [message] or pipe stdin)');
 

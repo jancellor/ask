@@ -13,6 +13,8 @@ export type RewindRow = {
   treePrefix: string;
 };
 
+// consider having "b" toggle whether branches are shown
+// should be easy by making this a type of filter
 export function flattenTree(agent: Agent, filter: RewindFilter): RewindRow[] {
   const roots = agent.getMessageTree();
   const headId = agent.currentHeadId;

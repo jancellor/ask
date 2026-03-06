@@ -2,11 +2,7 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { ZodType } from 'zod';
-import {
-  Config,
-  ConfigSecrets,
-  type Config as ConfigType,
-} from './config-schema.js';
+import { Config, ConfigSecrets } from './config-schema.js';
 import { ignoreMissing } from './fs-ops.js';
 
 export class ConfigStore {
@@ -17,7 +13,7 @@ export class ConfigStore {
     'config.secrets.json',
   );
 
-  async readConfig(): Promise<ConfigType> {
+  async readConfig(): Promise<Config> {
     const raw = await this.readJsonFile(ConfigStore.CONFIG_PATH);
     return this.parseWithSchema('config.json', Config, raw ?? {});
   }
@@ -31,7 +27,7 @@ export class ConfigStore {
     );
   }
 
-  async writeConfig(config: ConfigType): Promise<void> {
+  async writeConfig(config: Config): Promise<void> {
     const serialized = JSON.stringify(config, null, 2) + '\n';
     await this.writeConfigAtomically(serialized);
   }

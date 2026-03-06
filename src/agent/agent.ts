@@ -61,7 +61,7 @@ export class Agent {
   }
 
   removeListener(listener: AgentListener): void {
-    const i = this.listeners.indexOf(listener);
+    const i = this.listeners.lastIndexOf(listener);
     if (i !== -1) this.listeners.splice(i, 1);
   }
 
@@ -147,9 +147,9 @@ export class Agent {
     });
   }
 
-  rewind(rewindId: string | null): void {
+  async rewind(rewindId: string | null): Promise<void> {
     this.session.rewind(rewindId);
-    void Promise.all(this.listeners.map((l) => l.onMessages?.([])));
+    await Promise.all(this.listeners.map((l) => l.onMessages?.([])));
   }
 
   getMessageTree(): MessageNode[] {

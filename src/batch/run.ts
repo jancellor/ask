@@ -34,10 +34,9 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
     process.stderr.isTTY,
   );
 
-  const shutdownManager = new ShutdownManager(async () => {
-    await agent.cancelAll();
-  });
+  const shutdownManager = new ShutdownManager();
   shutdownManager.installSignalHandlers();
+  shutdownManager.addListener(async () => agent.cancelAll());
 
   // Log tool calls to stderr as they happen
   agent.addListener({

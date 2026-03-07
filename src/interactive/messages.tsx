@@ -6,6 +6,7 @@ import { SpinnerMessage } from './spinner-message.js';
 import { ToolPartMessage } from './tool-part-message.js';
 import { UserPartMessage } from './user-part-message.js';
 import { Welcome } from './welcome.js';
+import { isTurnStop } from '../agent/messages.js';
 
 interface MessagesProps {
   messages: AskMessage[];
@@ -71,8 +72,7 @@ export function Messages({
     return null;
   };
 
-  const showSpinner =
-    messages.length > 0 && messages.at(-1)!.role !== 'assistant';
+  const showSpinner = !isTurnStop(messages.at(-1));
 
   return (
     <Box flexGrow={1} flexDirection="column">

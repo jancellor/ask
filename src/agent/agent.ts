@@ -11,7 +11,7 @@ import {
   type ResolvedConfig,
 } from './config.js';
 import { InitPrompt } from './init-prompt.js';
-import type { AskMessage } from './messages.js';
+import { AskMessage, isTurnStop } from './messages.js';
 import { Session, type MessageNode, type SessionOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
@@ -114,6 +114,7 @@ export class Agent {
           await this.addMessages(result.response.messages);
 
           if (result.toolCalls.length === 0) break;
+
           const toolResults = await this.callTools(result.toolCalls, signal);
 
           await this.addMessages([{ role: 'tool', content: toolResults }]);

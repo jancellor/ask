@@ -1,4 +1,5 @@
 import { type Agent, AskMessage, type MessageNode } from '../agent/agent.js';
+import { extractText } from '../agent/messages.js';
 
 export const REWIND_FILTERS = ['user', 'user-agent'] as const;
 
@@ -89,18 +90,7 @@ function getMessageText(message: AskMessage): {
   prefillText: string;
   displayLabel: string;
 } {
-  const content = message.content;
-  let prefillText;
-  if (typeof content === 'string') prefillText = content;
-  else if (!Array.isArray(content)) prefillText = '';
-  else
-    prefillText = content
-      .filter(
-        (part): part is { type: 'text'; text: string } =>
-          part.type === 'text' && typeof part.text === 'string',
-      )
-      .map((part) => part.text)
-      .join('\n');
+  const prefillText = extractText(message);
   const displayLabel = firstLine(prefillText);
   return { prefillText, displayLabel };
 }

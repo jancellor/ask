@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AskMessage } from './messages.js';
+import { isTurnStop, type AskMessage } from './messages.js';
 import { SessionStore, type SessionStoreOptions } from './session-store.js';
 import type { ModelMessage } from 'ai';
 import { partition } from 'lodash-es';
@@ -105,13 +105,9 @@ export class Session {
       if (!message) {
         throw new Error(`unknown message ID: ${rewindId}`);
       }
-      const hasToolCall =
-        Array.isArray(message.content) &&
-        message.content.some((part) => part.type === 'tool-call');
-      const isAssistant = message.role === 'assistant';
       // We should support rewinding to user heads (e.g. just after the first generated AGENTS.md message),
       // but first refactor UI pending-state handling since queued asks are not explicitly tracked as waiting.
-      if (isAssistant && !hasToolCall) break;
+      if (isTurnStop(message)) break;
       rewindId = message._meta.parentId;
     }
     this.headId = rewindId;

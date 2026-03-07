@@ -1,7 +1,9 @@
 import { Agent, type AgentOptions } from '../agent/agent.js';
-import type { AskMessage } from '../agent/messages.js';
+import {
+  extractFinalAssistantText,
+  getToolCallParts,
+} from '../agent/messages.js';
 import { ShutdownManager } from '../shutdown-manager.js';
-import type { TextPart } from 'ai';
 import {
   renderMarkdown,
   renderPrompt,
@@ -38,28 +40,19 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
   shutdownManager.installSignalHandlers();
   shutdownManager.addListener(async () => agent.cancelAll());
 
-  // Log tool calls to stderr as they happen
   agent.addListener({
     onMessages(newMessages) {
-      for (const msg of newMessages) {
-        if (msg.role !== 'assistant' || !Array.isArray(msg.content)) continue;
-        for (const part of msg.content) {
-          if (part.type === 'tool-call') {
-            console.error(
-              formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
-            );
-          }
-        }
+      for (const part of getToolCallParts(newMessages)) {
+        console.error(
+          formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
+        );
       }
     },
   });
 
   await agent.ask(message);
 
-  // Extract and output the final assistant response
-  const response = extractFinalResponse(agent.messages);
-
-  // Output: either rendered for the terminal or left as literal text
+  const response = extractFinalAssistantText(agent.messages);
   const output = shouldRenderStdout ? renderMarkdown(response) : response;
   console.log(output);
 }
@@ -143,31 +136,4 @@ function truncateLine(str: string, maxLen: number): string {
   const contentMax = maxLen - 3;
   const truncated = firstLine.slice(0, contentMax);
   return truncated + '...';
-}
-
-function extractFinalResponse(messages: AskMessage[]): string {
-  // Find the last non-hidden assistant message
-  const assistantMessages = messages.filter(
-    (m) => !m._meta?.uiHidden && m.role === 'assistant',
-  );
-
-  const lastMessage = assistantMessages.at(-1);
-  if (!lastMessage) return '';
-
-  const { content } = lastMessage;
-
-  // Handle string content
-  if (typeof content === 'string') {
-    return content;
-  }
-
-  // Handle array content - extract text parts
-  if (Array.isArray(content)) {
-    return content
-      .filter((p): p is TextPart => p.type === 'text')
-      .map((p) => p.text)
-      .join('');
-  }
-
-  return '';
 }

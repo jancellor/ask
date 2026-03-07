@@ -151,6 +151,18 @@ ask --resume <uuid> --fork   # Fork a specific session into a new session
 ask --help                   # More options
 ```
 
+Library use:
+
+```ts
+import { ask, Agent } from '@jancellor/ask';
+
+const text = await ask('Refactor this function');
+
+const agent = await Agent.create({});
+await agent.ask('message');
+console.log(agent.messages);
+```
+
 ## Architecture
 
 ```

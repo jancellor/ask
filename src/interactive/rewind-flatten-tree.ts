@@ -18,7 +18,7 @@ export type RewindRow = {
 // should be easy by making this a type of filter
 export function flattenTree(agent: Agent, filter: RewindFilter): RewindRow[] {
   const roots = agent.getMessageTree();
-  const headId = agent.currentHeadId;
+  const headId = agent.headId; // expose isHead? on tree instead? shouldn't know IDs
   return roots.flatMap((root) => renderNode(root, headId, filter, 0, 0));
 }
 

@@ -14,8 +14,8 @@ export type MessageNode = {
 
 export class Session {
   private constructor(
+    public headId: string | null,
     private messagesById: Map<string, AskMessage>,
-    private headId: string | null,
     private sessionStore: SessionStore,
   ) {}
 
@@ -41,15 +41,7 @@ export class Session {
       headId = id;
     }
 
-    return new Session(messagesById, headId, sessionStore);
-  }
-
-  get sessionId(): string {
-    return this.sessionStore.sessionId;
-  }
-
-  get currentHeadId(): string | null {
-    return this.headId;
+    return new Session(headId, messagesById, sessionStore);
   }
 
   get messages(): AskMessage[] {
@@ -89,8 +81,8 @@ export class Session {
 
   async cleared(): Promise<Session> {
     return new Session(
-      new Map<string, AskMessage>(),
       null,
+      new Map<string, AskMessage>(),
       await SessionStore.create({}),
     );
   }

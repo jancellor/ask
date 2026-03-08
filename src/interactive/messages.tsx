@@ -6,13 +6,13 @@ import { SpinnerMessage } from './spinner-message.js';
 import { ToolPartMessage } from './tool-part-message.js';
 import { UserPartMessage } from './user-part-message.js';
 import { Welcome } from './welcome.js';
-import { isTurnStop } from '../agent/messages.js';
 
 interface MessagesProps {
   messages: AskMessage[];
   model: string;
   provider: string;
   variant: string | null;
+  pendingOperation: boolean;
 }
 
 export function Messages({
@@ -20,6 +20,7 @@ export function Messages({
   model,
   provider,
   variant,
+  pendingOperation,
 }: MessagesProps) {
   const messages = rawMessages.filter((m) => !m._meta?.uiHidden);
   const toolResults = buildToolResultsMap(messages);
@@ -72,10 +73,6 @@ export function Messages({
     return null;
   };
 
-  // should be tracking pending method promises rather since
-  // a user message at the end does not necessarily mean a call is in progress
-  const showSpinner = !isTurnStop(messages.at(-1));
-
   return (
     <Box flexGrow={1} flexDirection="column">
       <Static items={allStaticItems}>
@@ -94,7 +91,7 @@ export function Messages({
         }}
       </Static>
       {activeParts.map(renderPart)}
-      {showSpinner && <SpinnerMessage />}
+      {pendingOperation && <SpinnerMessage />}
     </Box>
   );
 }

@@ -16,6 +16,7 @@ export type UseAgentResult = {
   model: string;
   provider: string;
   variant: string | null;
+  pendingOperation: boolean;
   sendMessage: (message: string) => Promise<string>;
   abort: () => void;
   clear: (beforeClear?: () => void) => Promise<void>;
@@ -28,6 +29,8 @@ export function useAgent({
 }: UseAgentOptions): UseAgentResult | null {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [messages, setMessages] = useState<AskMessage[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const pendingOperation = pendingCount > 0;
 
   useEffect(() => {
     let inCleanup = false;
@@ -74,12 +77,26 @@ export function useAgent({
     setMessages([...agent.messages]);
   }, [agent]);
 
+  const runWithPendingOperation = useCallback(
+    async <T>(task: () => Promise<T>): Promise<T> => {
+      setPendingCount((n) => n + 1);
+      try {
+        return await task();
+      } finally {
+        setPendingCount((n) => n - 1);
+      }
+    },
+    [],
+  );
+
   const sendMessage = useCallback(
     (message: string) =>
       agent
-        ? agent.ask(message, () => setMessages([...agent.messages]))
+        ? runWithPendingOperation(() =>
+            agent.ask(message, () => setMessages([...agent.messages])),
+          )
         : Promise.resolve(''),
-    [agent],
+    [agent, runWithPendingOperation],
   );
 
   const abort = useCallback(() => {
@@ -89,19 +106,19 @@ export function useAgent({
   const clear = useCallback(
     async (beforeClear?: () => void) => {
       if (!agent) return;
-      await agent.clear(beforeClear);
+      await runWithPendingOperation(() => agent.clear(beforeClear));
       setMessages([...agent.messages]);
     },
-    [agent],
+    [agent, runWithPendingOperation],
   );
 
   const rewind = useCallback(
     async (rewindId: string | null) => {
       if (!agent) return;
-      await agent.rewind(rewindId);
+      await runWithPendingOperation(() => agent.rewind(rewindId));
       setMessages([...agent.messages]);
     },
-    [agent],
+    [agent, runWithPendingOperation],
   );
 
   if (!agent) return null;
@@ -112,6 +129,7 @@ export function useAgent({
     model: agent.model,
     provider: agent.provider,
     variant: agent.variant,
+    pendingOperation,
     sendMessage,
     abort,
     clear,

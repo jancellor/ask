@@ -21,11 +21,11 @@ export function getToolCallParts(messages: ModelMessage[]): ToolCallPart[] {
   });
 }
 
-export function isTurnStop(message?: ModelMessage): boolean {
+export function isRewindBoundary(message?: AskMessage): boolean {
   if (!message) return true;
+  if (message.role === 'user' && message._meta.uiHidden) return true;
   if (message.role !== 'assistant') return false;
-  if (!Array.isArray(message.content)) return true;
-  return !message.content.some((part) => part.type === 'tool-call');
+  return getToolCallParts([message]).length === 0;
 }
 
 export function extractFinalAssistantText(messages: ModelMessage[]): string {

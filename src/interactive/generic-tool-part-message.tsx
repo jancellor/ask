@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import { colors } from '../render/render.js';
-import { SpinnerMessage } from './spinner-message.js';
 import type { ToolPartMessageRenderProps } from './tool-part-message.js';
 
 export function GenericToolPartMessage({
@@ -28,9 +27,7 @@ export function GenericToolPartMessage({
           <Text color={colors.muted}>{formatGenericToolOutput(output)}</Text>
           <Text> </Text>
         </>
-      ) : (
-        <SpinnerMessage />
-      )}
+      ) : null}
     </Box>
   );
 }

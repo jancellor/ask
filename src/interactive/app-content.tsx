@@ -21,6 +21,7 @@ export function AppContent({
     model,
     provider,
     variant,
+    pendingOperation,
     sendMessage,
     abort,
     clear,
@@ -57,6 +58,7 @@ export function AppContent({
         model={model}
         provider={provider}
         variant={variant}
+        pendingOperation={pendingOperation}
       />
       {rewindOpen ? (
         <Rewind

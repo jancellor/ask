@@ -11,7 +11,7 @@ import {
   type ResolvedConfig,
 } from './config.js';
 import { InitPrompt } from './init-prompt.js';
-import { AskMessage, isTurnStop } from './messages.js';
+import { AskMessage, extractFinalAssistantText } from './messages.js';
 import { Session, type MessageNode, type SessionOptions } from './session.js';
 import { SystemPrompt } from './system-prompt.js';
 import { Serializer } from './serializer.js';
@@ -20,19 +20,12 @@ import { Tools } from './tools.js';
 export type { AskMessage, AskMessageMeta } from './messages.js';
 export type { MessageNode } from './session.js';
 
-export interface AgentListener {
-  onMessages?(messages: AskMessage[]): void | Promise<void>;
-  onClear?(): void | Promise<void>;
-  onFork?(): void | Promise<void>;
-}
-
 export type AgentOptions = SessionOptions & ConfigOptions;
 
 export const ABORTED_MESSAGE = '[Aborted]';
 export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
-  private listeners: AgentListener[] = [];
   private config: ResolvedConfig;
   private systemPrompt: string;
   private tools: Tools;
@@ -54,15 +47,6 @@ export class Agent {
       new ConfigReader().resolve(options),
     ]);
     return new Agent(session, config);
-  }
-
-  addListener(listener: AgentListener): void {
-    this.listeners.push(listener);
-  }
-
-  removeListener(listener: AgentListener): void {
-    const i = this.listeners.lastIndexOf(listener);
-    if (i !== -1) this.listeners.splice(i, 1);
   }
 
   get messages(): AskMessage[] {
@@ -89,16 +73,17 @@ export class Agent {
     return this.config.variant;
   }
 
-  // accept a callback here rather than use onMessages?
-  // replacing onClear and onRewind callbacks should be much simpler
-  ask(message: string): Promise<void> {
+  ask(
+    message: string,
+    onMessages?: (messages: AskMessage[]) => void,
+  ): Promise<string> {
     return this.serializer.submit(async () => {
-      await this.addInitialMessages();
-
-      await this.addMessages([{ role: 'user', content: message }]);
+      await this.addInitialMessages(onMessages);
+      await this.addMessages([{ role: 'user', content: message }], onMessages);
 
       this.controller = new AbortController();
       const { signal } = this.controller;
+      let text: string | null = null;
 
       try {
         while (true) {
@@ -111,22 +96,32 @@ export class Agent {
             abortSignal: signal,
           });
 
-          await this.addMessages(result.response.messages);
+          await this.addMessages(result.response.messages, onMessages);
 
-          if (result.toolCalls.length === 0) break;
+          if (result.toolCalls.length === 0) {
+            text = extractFinalAssistantText(result.response.messages);
+            break;
+          }
 
           const toolResults = await this.callTools(result.toolCalls, signal);
 
-          await this.addMessages([{ role: 'tool', content: toolResults }]);
+          await this.addMessages(
+            [{ role: 'tool', content: toolResults }],
+            onMessages,
+          );
         }
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e);
-        await this.addMessages([
-          { role: 'assistant', content: ERROR_MESSAGE + ': ' + msg },
-        ]);
+        text = ERROR_MESSAGE + ': ' + msg;
+        await this.addMessages(
+          [{ role: 'assistant', content: text }],
+          onMessages,
+        );
       } finally {
         this.controller = null;
       }
+
+      return text;
     });
   }
 
@@ -144,13 +139,11 @@ export class Agent {
     await this.serializer.submit(async () => {
       beforeClear?.();
       this.session = await this.session.cleared();
-      await Promise.all(this.listeners.map((l) => l.onClear?.()));
     });
   }
 
   async rewind(rewindId: string | null): Promise<void> {
     this.session.rewind(rewindId);
-    await Promise.all(this.listeners.map((l) => l.onMessages?.([])));
   }
 
   getMessageTree(): MessageNode[] {
@@ -162,25 +155,30 @@ export class Agent {
     await this.serializer.submit(async () => {
       beforeFork?.();
       await this.session.fork(sessionId);
-      await Promise.all(this.listeners.map((l) => l.onFork?.()));
     });
   }
 
   private async addMessages(
     newMessages: ModelMessage[],
+    onMessages?: (messages: AskMessage[]) => void,
     uiHidden = false,
-  ): Promise<void> {
+  ): Promise<AskMessage[]> {
     const appended = await this.session.append(newMessages, uiHidden);
-    await Promise.all(this.listeners.map((l) => l.onMessages?.(appended)));
+    onMessages?.(appended);
+    return appended;
   }
 
-  private async addInitialMessages() {
-    if (!this.session.messages.length) {
-      const initContent = await new InitPrompt().build();
-      if (initContent) {
-        await this.addMessages([{ role: 'user', content: initContent }], true);
-      }
-    }
+  private async addInitialMessages(
+    onMessages?: (messages: AskMessage[]) => void,
+  ) {
+    if (this.session.messages.length > 0) return;
+    const initContent = await new InitPrompt().build();
+    if (!initContent) return;
+    await this.addMessages(
+      [{ role: 'user', content: initContent }],
+      onMessages,
+      true,
+    );
   }
 
   private async callTools(

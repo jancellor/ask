@@ -4,6 +4,7 @@ import { Input } from './input.js';
 import { Messages } from './messages.js';
 import { Rewind, type RewindSelection } from './rewind.js';
 import type { UseAgentResult } from './use-agent.js';
+import { unawaited } from '../unawaited/unawaited.js';
 
 type AppContentProps = {
   useAgentResult: UseAgentResult;
@@ -29,8 +30,8 @@ export function AppContent({
   const [rewindOpen, setRewindOpen] = useState(false);
   const [prefillText, setPrefillText] = useState('');
 
-  const handleSubmit = (message: string) => {
-    void sendMessage(message);
+  const handleSubmit = async (message: string) => {
+    await sendMessage(message);
   };
 
   const handleOpenRewind = async () => {
@@ -39,7 +40,7 @@ export function AppContent({
   };
 
   const handleRewindSelect = (selection: RewindSelection) => {
-    rewind(selection.rewindId);
+    unawaited(rewind(selection.rewindId));
     setPrefillText(selection.prefillText);
     setRewindOpen(false);
   };

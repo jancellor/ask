@@ -30,9 +30,7 @@ export function isTurnStop(message?: ModelMessage): boolean {
 
 export function extractFinalAssistantText(messages: ModelMessage[]): string {
   const lastMessage = messages.at(-1);
-  if (lastMessage?.role !== 'assistant') {
-    throw new Error('no final assistant message found');
-  }
+  if (lastMessage?.role !== 'assistant') return '';
   return extractText(lastMessage);
 }
 

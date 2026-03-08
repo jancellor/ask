@@ -3,16 +3,17 @@ import { Box, Text, useInput } from 'ink';
 import { useInputState } from './use-input-state.js';
 import { useHistory } from './use-history.js';
 import { colors } from '../render/render.js';
+import { unawaited } from '../unawaited/unawaited.js';
 
 const CLEAR_COMMAND = '/clear';
 const CURSOR_BLINK_MS = 600;
 const DOUBLE_ESCAPE_MS = 300;
 
 type InputProps = {
-  onSubmit: (message: string) => void | Promise<void>;
+  onSubmit: (message: string) => Promise<void>;
   onAbort: () => void;
   onClear: (beforeClear?: () => void) => Promise<void>;
-  onRewind: () => void;
+  onRewind: () => Promise<void>;
   onRequestShutdown: () => void;
   initialValue: string;
 };
@@ -81,7 +82,7 @@ export function Input({
     if (key.escape) {
       if (value === '' && escapePending) {
         setEscapePending(false);
-        onRewind();
+        unawaited(onRewind());
       } else {
         onAbort();
         if (value === '') setEscapePending(true);
@@ -182,12 +183,14 @@ export function Input({
       clear();
 
       if (message === CLEAR_COMMAND) {
-        void onClear(() => {
-          console.log('[New session]\n');
-        });
+        unawaited(
+          onClear(() => {
+            console.log('[New session]\n');
+          }),
+        );
       } else {
         history.onSubmit(message);
-        void onSubmit(message);
+        unawaited(onSubmit(message));
       }
       return;
     }

@@ -16,10 +16,10 @@ export type UseAgentResult = {
   model: string;
   provider: string;
   variant: string | null;
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string) => Promise<string>;
   abort: () => void;
   clear: (beforeClear?: () => void) => Promise<void>;
-  rewind: (rewindId: string | null) => void;
+  rewind: (rewindId: string | null) => Promise<void>;
 };
 
 export function useAgent({
@@ -72,16 +72,13 @@ export function useAgent({
   useEffect(() => {
     if (!agent) return;
     setMessages([...agent.messages]);
-    const listener = {
-      onMessages: () => setMessages([...agent.messages]),
-      onClear: () => setMessages([]),
-    };
-    agent.addListener(listener);
-    return () => agent.removeListener(listener);
   }, [agent]);
 
   const sendMessage = useCallback(
-    (message: string) => (agent ? agent.ask(message) : Promise.resolve()),
+    (message: string) =>
+      agent
+        ? agent.ask(message, () => setMessages([...agent.messages]))
+        : Promise.resolve(''),
     [agent],
   );
 
@@ -90,14 +87,20 @@ export function useAgent({
   }, [agent]);
 
   const clear = useCallback(
-    (beforeClear?: () => void) =>
-      agent ? agent.clear(beforeClear) : Promise.resolve(),
+    async (beforeClear?: () => void) => {
+      if (!agent) return;
+      await agent.clear(beforeClear);
+      setMessages([...agent.messages]);
+    },
     [agent],
   );
 
   const rewind = useCallback(
-    (rewindId: string | null) =>
-      agent ? agent.rewind(rewindId) : Promise.resolve(),
+    async (rewindId: string | null) => {
+      if (!agent) return;
+      await agent.rewind(rewindId);
+      setMessages([...agent.messages]);
+    },
     [agent],
   );
 

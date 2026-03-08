@@ -1,16 +1,17 @@
 export class Serializer {
-  private tail: Promise<void> = Promise.resolve();
+  private tail: Promise<unknown> = Promise.resolve();
   private generation = 0;
 
-  async submit(task: () => Promise<void>): Promise<void> {
+  async submit<T>(task: () => Promise<T>): Promise<T> {
     const generation = this.generation;
     return (this.tail = (async () => {
       try {
         await this.tail;
       } catch (ignored) {}
       if (this.generation === generation) {
-        await task();
+        return await task();
       }
+      throw new Error('aborted');
     })());
   }
 

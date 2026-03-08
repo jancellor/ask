@@ -72,6 +72,8 @@ export function Messages({
     return null;
   };
 
+  // should be tracking pending method promises rather since
+  // a user message at the end does not necessarily mean a call is in progress
   const showSpinner = !isTurnStop(messages.at(-1));
 
   return (

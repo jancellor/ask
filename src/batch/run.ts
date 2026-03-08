@@ -1,8 +1,5 @@
 import { Agent, type AgentOptions } from '../agent/agent.js';
-import {
-  extractFinalAssistantText,
-  getToolCallParts,
-} from '../agent/messages.js';
+import { getToolCallParts } from '../agent/messages.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import {
   renderMarkdown,
@@ -40,19 +37,15 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
   shutdownManager.installSignalHandlers();
   shutdownManager.addListener(async () => agent.cancelAll());
 
-  agent.addListener({
-    onMessages(newMessages) {
-      for (const part of getToolCallParts(newMessages)) {
-        console.error(
-          formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
-        );
-      }
-    },
+  const response = await agent.ask(message, (newMessages) => {
+    // should show all intermediate message types, eg assistant text?
+    for (const part of getToolCallParts(newMessages)) {
+      console.error(
+        formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
+      );
+    }
   });
 
-  await agent.ask(message);
-
-  const response = extractFinalAssistantText(agent.messages);
   const output = shouldRenderStdout ? renderMarkdown(response) : response;
   console.log(output);
 }

@@ -17,8 +17,8 @@ export type UseAgentResult = {
   provider: string;
   variant: string | null;
   pendingOperation: boolean;
-  sendMessage: (message: string) => Promise<string>;
-  abort: () => void;
+  ask: (message: string) => Promise<void>;
+  abort: () => Promise<void>;
   clear: (beforeClear?: () => void) => Promise<void>;
   rewind: (rewindId: string | null) => Promise<void>;
 };
@@ -41,7 +41,7 @@ export function useAgent({
       if (!disposePromise) {
         disposePromise = (async () => {
           const createdAgent = await createPromise;
-          await createdAgent.cancelAll();
+          await createdAgent.abortAll();
         })();
       }
       return disposePromise;
@@ -78,10 +78,10 @@ export function useAgent({
   }, [agent]);
 
   const runWithPendingOperation = useCallback(
-    async <T>(task: () => Promise<T>): Promise<T> => {
+    async (task: () => Promise<unknown>): Promise<void> => {
       setPendingCount((n) => n + 1);
       try {
-        return await task();
+        await task();
       } finally {
         setPendingCount((n) => n - 1);
       }
@@ -89,34 +89,39 @@ export function useAgent({
     [],
   );
 
-  const sendMessage = useCallback(
-    (message: string) =>
-      agent
-        ? runWithPendingOperation(() =>
-            agent.ask(message, () => setMessages([...agent.messages])),
-          )
-        : Promise.resolve(''),
+  const ask = useCallback(
+    (message: string): Promise<void> => {
+      if (!agent) return Promise.resolve();
+      return runWithPendingOperation(() =>
+        agent.ask(message, () => setMessages([...agent.messages])),
+      );
+    },
     [agent, runWithPendingOperation],
   );
 
-  const abort = useCallback(() => {
-    agent?.abort();
-  }, [agent]);
+  const abort = useCallback((): Promise<void> => {
+    if (!agent) return Promise.resolve();
+    return runWithPendingOperation(() => agent.abortCurrent());
+  }, [agent, runWithPendingOperation]);
 
   const clear = useCallback(
-    async (beforeClear?: () => void) => {
-      if (!agent) return;
-      await runWithPendingOperation(() => agent.clear(beforeClear));
-      setMessages([...agent.messages]);
+    (beforeClear?: () => void): Promise<void> => {
+      if (!agent) return Promise.resolve();
+      return runWithPendingOperation(async () => {
+        await agent.clear(beforeClear);
+        setMessages([...agent.messages]);
+      });
     },
     [agent, runWithPendingOperation],
   );
 
   const rewind = useCallback(
-    async (rewindId: string | null) => {
-      if (!agent) return;
-      await runWithPendingOperation(() => agent.rewind(rewindId));
-      setMessages([...agent.messages]);
+    (rewindId: string | null): Promise<void> => {
+      if (!agent) return Promise.resolve();
+      return runWithPendingOperation(async () => {
+        await agent.rewind(rewindId);
+        setMessages([...agent.messages]);
+      });
     },
     [agent, runWithPendingOperation],
   );
@@ -130,7 +135,7 @@ export function useAgent({
     provider: agent.provider,
     variant: agent.variant,
     pendingOperation,
-    sendMessage,
+    ask,
     abort,
     clear,
     rewind,

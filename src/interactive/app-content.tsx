@@ -22,7 +22,7 @@ export function AppContent({
     provider,
     variant,
     pendingOperation,
-    sendMessage,
+    ask,
     abort,
     clear,
     rewind,
@@ -31,19 +31,18 @@ export function AppContent({
   const [rewindOpen, setRewindOpen] = useState(false);
   const [prefillText, setPrefillText] = useState('');
 
-  const handleSubmit = async (message: string) => {
-    await sendMessage(message);
-  };
-
   const handleOpenRewind = async () => {
-    await agent.cancelAll();
     setRewindOpen(true);
   };
 
   const handleRewindSelect = (selection: RewindSelection) => {
-    unawaited(rewind(selection.rewindId));
-    setPrefillText(selection.prefillText);
-    setRewindOpen(false);
+    unawaited(
+      (async () => {
+        await rewind(selection.rewindId);
+        setPrefillText(selection.prefillText);
+        setRewindOpen(false);
+      })(),
+    );
   };
 
   const handleCloseRewind = () => {
@@ -68,7 +67,7 @@ export function AppContent({
         />
       ) : (
         <Input
-          onSubmit={handleSubmit}
+          onAsk={ask}
           onAbort={abort}
           onClear={clear}
           onRewind={handleOpenRewind}

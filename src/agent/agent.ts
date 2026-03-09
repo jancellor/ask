@@ -7,7 +7,7 @@ import {
 import { InitPrompt } from './init-prompt.js';
 import { AskMessage } from './messages.js';
 import { type MessageNode, Session, type SessionOptions } from './session.js';
-import { Serializer } from './serializer.js';
+import { TaskQueue } from './task-queue.js';
 import { Turn } from './turn.js';
 
 export type { AskMessage, AskMessageMeta } from './messages.js';
@@ -23,8 +23,7 @@ export class Agent {
   private turn: Turn;
   private session: Session;
   // consider having SerializedAgent be a wrapper of plain Agent?
-  private serializer = new Serializer();
-  private controller: AbortController | null = null;
+  private queue = new TaskQueue();
 
   private constructor(session: Session, config: ResolvedConfig) {
     this.session = session;
@@ -68,75 +67,62 @@ export class Agent {
     message: string,
     onMessages?: (messages: AskMessage[]) => void | Promise<void>,
   ): Promise<string> {
-    return this.serializer.submit(async () => {
-      await this.addInitialMessages(onMessages);
-      await this.addMessages([{ role: 'user', content: message }], onMessages);
+    return this.queue.submit(async (signal) => {
+      const push = async (ms: ModelMessage[], uiHidden?: boolean) => {
+        const appended = await this.session.append(ms, uiHidden);
+        await onMessages?.(appended);
+      };
 
-      this.controller = new AbortController();
-      const { signal } = this.controller;
-      try {
-        return await this.turn.ask(
-          this.session.messages,
-          signal,
-          async (newMessages) => {
-            await this.addMessages(newMessages, onMessages);
-          },
-        );
-      } finally {
-        this.controller = null;
-      }
+      await this.addInitialMessages(push);
+      await push([{ role: 'user', content: message }]);
+
+      return this.turn.ask(
+        this.session.messages,
+        signal,
+        async (newMessages) => {
+          await push(newMessages);
+        },
+      );
     });
   }
 
-  abort(): void {
-    this.controller?.abort();
+  async abortCurrent(): Promise<void> {
+    await this.queue.abortCurrent();
   }
 
-  async cancelAll(): Promise<void> {
-    this.abort();
-    await this.serializer.cancelPending();
+  async abortAll(): Promise<void> {
+    await this.queue.abortAll();
   }
 
   async clear(beforeClear?: () => void): Promise<void> {
-    await this.cancelAll();
-    await this.serializer.submit(async () => {
+    await this.queue.submit(async () => {
       beforeClear?.();
       this.session = await this.session.cleared();
-    });
+    }, true);
   }
 
   async rewind(rewindId: string | null): Promise<void> {
-    this.session.rewind(rewindId);
+    await this.queue.submit(async () => {
+      this.session.rewind(rewindId);
+    }, true);
   }
 
   async fork(sessionId?: string, beforeFork?: () => void): Promise<void> {
-    await this.cancelAll();
-    await this.serializer.submit(async () => {
+    await this.queue.submit(async () => {
       beforeFork?.();
       await this.session.fork(sessionId);
-    });
-  }
-
-  private async addMessages(
-    newMessages: ModelMessage[],
-    onMessages?: (messages: AskMessage[]) => void | Promise<void>,
-    uiHidden = false,
-  ): Promise<AskMessage[]> {
-    const appended = await this.session.append(newMessages, uiHidden);
-    await onMessages?.(appended);
-    return appended;
+    }, true);
   }
 
   private async addInitialMessages(
-    onMessages?: (messages: AskMessage[]) => void | Promise<void>,
+    push: (
+      messages: ModelMessage[],
+      uiHidden?: boolean,
+    ) => void | Promise<void>,
   ) {
     if (this.session.headId !== null) return;
     const initContent = await new InitPrompt().build();
     if (!initContent) return;
-    await this.addMessages(
-      [{ role: 'user', content: initContent }],
-      onMessages,
-      true,
-    );
+    await push([{ role: 'user', content: initContent }], true);
   }
 }

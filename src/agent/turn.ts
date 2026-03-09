@@ -5,12 +5,8 @@ import {
   type ToolSet,
   type TypedToolCall,
 } from 'ai';
-import {
-  type ConfigOptions,
-  ConfigReader,
-  type ResolvedConfig,
-} from './config.js';
-import { extractFinalAssistantText, extractText } from './messages.js';
+import { type ResolvedConfig } from './config.js';
+import { extractFinalAssistantText } from './messages.js';
 import { Tools } from './tools.js';
 import { SystemPrompt } from './system-prompt.js';
 
@@ -40,9 +36,9 @@ export class Turn {
     onMessages: (messages: ModelMessage[]) => void | Promise<void>,
   ): Promise<string> {
     const messages = [...initialMessages];
-    const push = async (m: ModelMessage[]) => {
-      messages.push(...m);
-      await onMessages(m);
+    const push = async (ms: ModelMessage[]) => {
+      messages.push(...ms);
+      await onMessages(ms);
     };
 
     try {

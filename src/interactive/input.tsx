@@ -10,8 +10,8 @@ const CURSOR_BLINK_MS = 600;
 const DOUBLE_ESCAPE_MS = 300;
 
 type InputProps = {
-  onSubmit: (message: string) => Promise<void>;
-  onAbort: () => void;
+  onAsk: (message: string) => Promise<void>;
+  onAbort: () => Promise<void>;
   onClear: (beforeClear?: () => void) => Promise<void>;
   onRewind: () => Promise<void>;
   onRequestShutdown: () => void;
@@ -19,7 +19,7 @@ type InputProps = {
 };
 
 export function Input({
-  onSubmit,
+  onAsk,
   onAbort,
   onClear,
   onRewind,
@@ -84,7 +84,7 @@ export function Input({
         setEscapePending(false);
         unawaited(onRewind());
       } else {
-        onAbort();
+        unawaited(onAbort());
         if (value === '') setEscapePending(true);
       }
       return;
@@ -190,7 +190,7 @@ export function Input({
         );
       } else {
         history.onSubmit(message);
-        unawaited(onSubmit(message));
+        unawaited(onAsk(message));
       }
       return;
     }

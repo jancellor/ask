@@ -131,11 +131,15 @@ cat file | ask "summarize this:" # message is concatenated with stdin
 ```
 
 ```ts
-import { ask, Agent } from '@jancellor/ask';
+import { ask } from '@jancellor/ask';
 
 console.log(await ask('message'));
+```
+
+```ts
+import { Agent } from '@jancellor/ask';
 
 const agent = await Agent.create({});
-await agent.ask('message');
-console.log(JSON.stringify(agent.messages));
+const response = await agent.ask('message', (messages) => {});
+console.log(response);
 ```

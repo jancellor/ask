@@ -107,9 +107,8 @@ export class Agent {
     }, true);
   }
 
-  async fork(sessionId?: string, beforeFork?: () => void): Promise<void> {
+  async fork(sessionId?: string): Promise<void> {
     await this.queue.submit(async () => {
-      beforeFork?.();
       await this.session.fork(sessionId);
     }, true);
   }

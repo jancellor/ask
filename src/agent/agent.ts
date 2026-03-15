@@ -6,6 +6,7 @@ import {
 } from './config.js';
 import { InitPrompt } from './init-prompt.js';
 import { AskMessage } from './messages.js';
+import type { AppendMessageOptions } from './session.js';
 import { type MessageNode, Session, type SessionOptions } from './session.js';
 import { TaskQueue } from './task-queue.js';
 import { Turn } from './turn.js';
@@ -68,19 +69,22 @@ export class Agent {
     onMessages?: (messages: AskMessage[]) => void | Promise<void>,
   ): Promise<string> {
     return this.queue.submit(async (signal) => {
-      const push = async (ms: ModelMessage[], uiHidden?: boolean) => {
-        const appended = await this.session.append(ms, uiHidden);
+      const push = async (
+        ms: ModelMessage[],
+        options: AppendMessageOptions,
+      ) => {
+        const appended = await this.session.append(ms, options);
         await onMessages?.(appended);
       };
 
       await this.addInitialMessages(push);
-      await push([{ role: 'user', content: message }]);
+      await push([{ role: 'user', content: message }], {});
 
       return this.turn.ask(
         this.session.messages,
         signal,
-        async (newMessages) => {
-          await push(newMessages);
+        async (newMessages, options) => {
+          await push(newMessages, options ?? {});
         },
       );
     });
@@ -116,12 +120,12 @@ export class Agent {
   private async addInitialMessages(
     push: (
       messages: ModelMessage[],
-      uiHidden?: boolean,
+      options: AppendMessageOptions,
     ) => void | Promise<void>,
   ) {
     if (this.session.headId !== null) return;
     const initContent = await new InitPrompt().build();
     if (!initContent) return;
-    await push([{ role: 'user', content: initContent }], true);
+    await push([{ role: 'user', content: initContent }], { uiHidden: true });
   }
 }

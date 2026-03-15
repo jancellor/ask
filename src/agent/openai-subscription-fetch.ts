@@ -6,6 +6,7 @@ const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const ISSUER = 'https://auth.openai.com';
 const CODEX_API_ENDPOINT = 'https://chatgpt.com/backend-api/codex/responses';
 const POLL_SAFETY_MS = 3000;
+const ORIGINATOR = 'ask';
 
 type Claims = {
   chatgpt_account_id?: string;
@@ -183,20 +184,11 @@ async function loginWithDeviceCode(baseFetch: typeof fetch) {
   }
 }
 
-/**
- * I don't think this works but leaving it plugged in for now.
- * We might need to set other headers/content in order to use subscriptions.
- */
 export function createOpenAISubscriptionFetch() {
   const baseFetch = fetch;
   const file = expand('~/.config/ask/openai-oauth.json');
   const skew = 30_000;
   let inflight: Promise<Store> | undefined;
-
-  function isMarked(headers: Headers) {
-    const value = headers.get('authorization');
-    return value === 'Bearer oauth';
-  }
 
   function rewriteUrl(url: URL) {
     if (url.pathname.includes('/v1/responses'))
@@ -235,10 +227,6 @@ export function createOpenAISubscriptionFetch() {
 
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const req = new Request(input, init);
-    if (!isMarked(req.headers)) {
-      return baseFetch(input, init);
-    }
-
     const reqUrl = new URL(req.url);
     if (!isAllowedSubscriptionHost(reqUrl.hostname)) {
       throw new Error(
@@ -252,6 +240,14 @@ export function createOpenAISubscriptionFetch() {
     out.headers.set('authorization', `Bearer ${auth.access}`);
     if (auth.accountId) out.headers.set('ChatGPT-Account-Id', auth.accountId);
     if (!auth.accountId) out.headers.delete('ChatGPT-Account-Id');
+    out.headers.set('OpenAI-Beta', 'responses=experimental');
+    out.headers.set('originator', ORIGINATOR);
+    if (!out.headers.has('user-agent')) {
+      out.headers.set(
+        'User-Agent',
+        `${ORIGINATOR} (${process.platform} ${os.release()}; ${process.arch})`,
+      );
+    }
     return baseFetch(out);
   };
 }

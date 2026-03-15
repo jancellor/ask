@@ -1,12 +1,12 @@
 import {
-  generateText,
   type ModelMessage,
   type ToolContent,
   type ToolSet,
   type TypedToolCall,
 } from 'ai';
+import { generateText } from './generate-text.js';
 import { type ResolvedConfig } from './config.js';
-import { extractFinalAssistantText } from './messages.js';
+import { type AskMessage, extractFinalAssistantText } from './messages.js';
 import { Tools } from './tools.js';
 import { SystemPrompt } from './system-prompt.js';
 
@@ -31,20 +31,28 @@ export class Turn {
   }
 
   async ask(
-    initialMessages: ModelMessage[],
+    initialMessages: AskMessage[],
     signal: AbortSignal,
-    onMessages: (messages: ModelMessage[]) => void | Promise<void>,
+    onMessages: (
+      messages: ModelMessage[],
+      options?: { uiHidden?: boolean },
+    ) => void | Promise<void>,
   ): Promise<string> {
-    const messages = [...initialMessages];
-    const push = async (ms: ModelMessage[]) => {
+    const messages: ModelMessage[] = [...initialMessages];
+
+    const push = async (
+      ms: ModelMessage[],
+      options?: { uiHidden?: boolean },
+    ) => {
       messages.push(...ms);
-      await onMessages(ms);
+      await onMessages(ms, options);
     };
 
     try {
       while (true) {
         const result = await generateText({
           ...this.config.generateOptions,
+          sdkProvider: this.config.sdkProvider,
           model: this.config.languageModel,
           system: this.systemPrompt,
           messages,

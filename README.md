@@ -67,6 +67,19 @@ Store secrets separately in `~/.config/ask/config.secrets.json`:
 }
 ```
 
+For OpenAI subscription auth via ChatGPT OAuth, set the provider
+`sdkProvider` to `openai-subscription`. On first use, `ask` will start the
+OpenAI device flow and store refresh/access tokens in
+`~/.config/ask/openai-oauth.json`.
+
+```json
+{
+  "openai-subscription": {
+    "currentModel": "gpt-5.3-codex"
+  }
+}
+```
+
 For OpenAI-compatible endpoints, configure the provider explicitly:
 
 ```json

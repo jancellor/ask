@@ -25,12 +25,12 @@ export class SkillsPrompt {
         'Agent skills contain additional instructions/code.\n' +
         'The following are just brief descriptions/summaries indicating relevance.\n' +
         'Read the full SKILL.md file when relevant to your task.',
-      '<AGENT_SKILLS>',
+      '<agent_skills>',
       '# Agent skills',
       ...skills.map(
         (s) => `## \`${s.name}\`\n\nPath: \`${s.path}\`\n\n${s.description}`,
       ),
-      '</AGENT_SKILLS>',
+      '</agent_skills>',
     ].join('\n\n');
   }
 

@@ -5,6 +5,9 @@ import type { ModelMessage } from 'ai';
 import { partition } from 'lodash-es';
 
 export type SessionOptions = SessionStoreOptions;
+export type AppendMessageOptions = {
+  uiHidden?: boolean;
+};
 
 export type MessageNode = {
   age: number;
@@ -65,11 +68,11 @@ export class Session {
 
   async append(
     messages: ModelMessage[],
-    uiHidden = false,
+    options: AppendMessageOptions,
   ): Promise<AskMessage[]> {
     if (messages.length === 0) return [];
 
-    const appended = this.withMeta(messages, uiHidden);
+    const appended = this.withMeta(messages, options);
     await this.sessionStore.append(appended);
     for (const message of appended) {
       this.messagesById.set(message._meta.id, message);
@@ -128,7 +131,10 @@ export class Session {
     return nodes;
   }
 
-  private withMeta(messages: ModelMessage[], uiHidden: boolean): AskMessage[] {
+  private withMeta(
+    messages: ModelMessage[],
+    options: AppendMessageOptions,
+  ): AskMessage[] {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
 
@@ -141,7 +147,7 @@ export class Session {
         _meta: {
           id,
           timestamp,
-          uiHidden,
+          uiHidden: options.uiHidden,
           parentId: parent ?? null,
         },
       });

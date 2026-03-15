@@ -9,6 +9,8 @@ Available tools:
 
 - `execute`: execute shell commands using bash.
 
+This is your only tool. All actions must be performed using this tool.
+
 Guidelines:
 
 - Read relevant files and understand context before making changes.

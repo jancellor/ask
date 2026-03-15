@@ -25,6 +25,7 @@ type ProviderOptions = {
 export async function generateText<TOOLS extends ToolSet>(options: {
   model: unknown;
   sdkProvider: string;
+  sessionId?: string;
   system: string;
   messages: ModelMessage[];
   tools: TOOLS;
@@ -34,6 +35,7 @@ export async function generateText<TOOLS extends ToolSet>(options: {
 }): Promise<GenerateTextResult<TOOLS>> {
   const {
     sdkProvider,
+    sessionId,
     system,
     tools,
     messages,
@@ -48,6 +50,7 @@ export async function generateText<TOOLS extends ToolSet>(options: {
           reasoningEffort: 'medium',
           reasoningSummary: 'auto',
           ...providerOptions?.openai,
+          promptCacheKey: sessionId,
           instructions: system,
           systemMessageMode: 'remove',
           store: false,
@@ -61,6 +64,9 @@ export async function generateText<TOOLS extends ToolSet>(options: {
     messages,
     tools,
     ...(isOpenAISubscription ? {} : { system }),
+    ...(isOpenAISubscription && sessionId
+      ? { headers: { session_id: sessionId } }
+      : {}),
     providerOptions: rewrittenProviderOptions,
   } as any);
 

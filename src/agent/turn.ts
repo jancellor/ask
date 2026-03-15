@@ -32,6 +32,7 @@ export class Turn {
 
   async ask(
     initialMessages: AskMessage[],
+    sessionId: string,
     signal: AbortSignal,
     onMessages: (
       messages: ModelMessage[],
@@ -53,6 +54,7 @@ export class Turn {
         const result = await generateText({
           ...this.config.generateOptions,
           sdkProvider: this.config.sdkProvider,
+          sessionId,
           model: this.config.languageModel,
           system: this.systemPrompt,
           messages,

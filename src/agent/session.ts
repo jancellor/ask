@@ -22,6 +22,10 @@ export class Session {
     private sessionStore: SessionStore,
   ) {}
 
+  get sessionId(): string {
+    return this.sessionStore.sessionId;
+  }
+
   static async create(options: SessionOptions): Promise<Session> {
     const sessionStore = await SessionStore.create(options);
 

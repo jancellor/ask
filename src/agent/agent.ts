@@ -82,6 +82,7 @@ export class Agent {
 
       return this.turn.ask(
         this.session.messages,
+        this.session.sessionId,
         signal,
         async (newMessages, options) => {
           await push(newMessages, options ?? {});

@@ -158,7 +158,10 @@ export class ConfigReader {
     model: ModelConfig,
     configOptions: ConfigOptions,
   ): { variant: string | null; variantConfig: VariantConfig | undefined } {
-    const variant = configOptions.variant ?? model.currentVariant ?? null;
+    const variant =
+      configOptions.variant !== undefined
+        ? configOptions.variant
+        : (model.currentVariant ?? null);
     const variantConfig = variant ? model.variants?.[variant] : undefined;
     if (variant) check(variantConfig, `variant not found: ${variant}`);
     return { variant, variantConfig };

@@ -1,5 +1,7 @@
 # TODO
 
+exclamation mark for execute mode? double for no context like pi?
+
 figure out openai subscription options if realistic
 
 library import, possibly with `await ask("prompt", options)`

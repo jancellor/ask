@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { runInteractive } from './interactive/run.js';
 import { RenderOutput, runBatch } from './batch/run.js';
 import { runConfig } from './config/run.js';
+import { runWeb } from './web/run.js';
 
 async function main(): Promise<void> {
   const program = new Command()
@@ -16,6 +17,7 @@ async function main(): Promise<void> {
     .option('-f, --fork [id]', 'write to given (or random) session')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
+    .option('-w, --web [port]', 'start web interface')
     .option('--render-output <when>', '(auto, always, never)', 'auto')
     .addHelpText(
       'after',
@@ -32,6 +34,7 @@ async function main(): Promise<void> {
     config?: true;
     interactive?: true;
     batch?: true;
+    web?: string | true;
     renderOutput: string;
   }>();
   const message = program.args[0] as string | undefined;
@@ -66,6 +69,10 @@ async function main(): Promise<void> {
 
   if (opts.config) {
     await runConfig(configOptions);
+  } else if (opts.web !== undefined) {
+    const port =
+      opts.web === true ? undefined : parseInt(opts.web as string, 10);
+    await runWeb({ agentOptions, port });
   } else if (useInteractive) {
     await runInteractive({ agentOptions });
   } else {

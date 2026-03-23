@@ -15,7 +15,8 @@ export class AgentsPrompt {
 
     if (!contents.length) return '';
     return [
-      'Follow the instructions below that have come from AGENTS.md files.',
+      'Follow the instructions below that have come from AGENTS.md files.\n' +
+        'You do not need to search for AGENTS.md files yourself.',
       '<agent_instructions>',
       ...contents,
       '</agent_instructions>',

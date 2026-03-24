@@ -3,7 +3,7 @@ import type { AskMessage } from './message-utils.js';
 import { MessageGraph } from './message-graph.js';
 import { MessageLog } from './message-log.js';
 
-describe('messageChain suffix loading', () => {
+describe('messageThread suffix loading', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -29,7 +29,7 @@ describe('messageChain suffix loading', () => {
 
     const loaded = await MessageGraph.create();
 
-    expect(loaded.chain('c').map((message) => message._meta.id)).toEqual([
+    expect(loaded.thread('c').map((message) => message._meta.id)).toEqual([
       'b',
       'c',
     ]);

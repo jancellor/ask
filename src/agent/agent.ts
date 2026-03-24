@@ -28,7 +28,7 @@ export class Agent {
   private queue = new TaskQueue();
 
   private constructor(
-    private _headId: string | null,
+    private _tipId: string | null,
     private messageGraph: MessageGraph,
     private config: ResolvedConfig,
   ) {
@@ -41,29 +41,29 @@ export class Agent {
       new ConfigReader().resolve(options),
     ]);
 
-    const headId = !options.resume
+    const tipId = !options.resume
       ? null
       : typeof options.resume === 'string'
         ? options.resume
         : messageGraph.lastId();
 
-    if (headId !== null && !messageGraph.has(headId)) {
-      throw new Error(`unknown message ID: ${headId}`);
+    if (tipId !== null && !messageGraph.has(tipId)) {
+      throw new Error(`unknown message ID: ${tipId}`);
     }
 
-    return new Agent(headId, messageGraph, config);
+    return new Agent(tipId, messageGraph, config);
   }
 
-  get headId(): string | null {
-    return this._headId;
+  get tipId(): string | null {
+    return this._tipId;
   }
 
   messages(): AskMessage[] {
-    return this.messageGraph.chain(this._headId);
+    return this.messageGraph.thread(this._tipId);
   }
 
   messageTree(): MessageNode | null {
-    return this.messageGraph.tree(this._headId);
+    return this.messageGraph.tree(this._tipId);
   }
 
   get model(): string {
@@ -88,12 +88,12 @@ export class Agent {
         options: AppendMessageOptions,
       ) => {
         const appended = await this.messageGraph.append(
-          this._headId,
+          this._tipId,
           ms,
           options,
         );
         const last = appended.at(-1);
-        if (last) this._headId = last._meta.id;
+        if (last) this._tipId = last._meta.id;
         await onMessages?.(appended);
       };
 
@@ -122,7 +122,7 @@ export class Agent {
   async clear(beforeClear?: () => void): Promise<void> {
     await this.queue.submit(async () => {
       beforeClear?.();
-      this._headId = null;
+      this._tipId = null;
     }, true);
   }
 
@@ -131,7 +131,7 @@ export class Agent {
       const resolved = this.messageGraph.resolveRewind(rewindId);
       // null means we walked past the loaded suffix — don't rewind.
       // Use clear() to reset to an empty conversation.
-      if (resolved !== null) this._headId = resolved;
+      if (resolved !== null) this._tipId = resolved;
     }, true);
   }
 
@@ -141,7 +141,7 @@ export class Agent {
       options: AppendMessageOptions,
     ) => void | Promise<void>,
   ) {
-    if (this._headId !== null) return;
+    if (this._tipId !== null) return;
     const initContent = await new InitPrompt().build();
     if (!initContent) return;
     await push([{ role: 'user', content: initContent }], { uiHidden: true });

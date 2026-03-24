@@ -105,7 +105,7 @@ and therefore faster performance for tasks that are truly independent.
 When `ask` runs, messages are persisted to `~/.ask/messages/messages.jsonl`.
 Each line is an AI SDK `ModelMessage` with additional metadata in a `_meta` property.
 Messages form a DAG via `_meta.id` and `_meta.parentId`.
-A linear conversation is a chain.
+A linear conversation is a thread.
 Branches occur when two messages share the same parent.
 All conversations share a single append-only log file.
 

@@ -67,7 +67,7 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
       return;
     }
     for (let i = rows.length - 1; i >= 0; i--) {
-      if (rows[i]!.parentIsHead) {
+      if (rows[i]!.parentIsTip) {
         setCursor(i);
         setScrollOffset(0);
         return;

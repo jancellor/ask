@@ -52,9 +52,9 @@ export class MessageGraph {
     return this._lastId;
   }
 
-  chain(headId: string | null): AskMessage[] {
-    const chain: AskMessage[] = [];
-    let currentId = headId;
+  thread(tipId: string | null): AskMessage[] {
+    const thread: AskMessage[] = [];
+    let currentId = tipId;
     const seen = new Set<string>();
     while (currentId) {
       if (seen.has(currentId)) {
@@ -64,20 +64,20 @@ export class MessageGraph {
       seen.add(currentId);
       const message = this.messagesById.get(currentId);
       if (!message) break;
-      chain.push(message);
+      thread.push(message);
       currentId = message._meta.parentId;
     }
 
-    return chain.reverse();
+    return thread.reverse();
   }
 
   async append(
-    headId: string | null,
+    tipId: string | null,
     messages: ModelMessage[],
     options: AppendMessageOptions,
   ): Promise<AskMessage[]> {
     if (messages.length === 0) return []; // prevents unnecessary file creation
-    const appended = this.withMeta(headId, messages, options);
+    const appended = this.withMeta(tipId, messages, options);
     await this.messageLog.append(appended);
     for (const message of appended) {
       this.messagesById.set(message._meta.id, message);
@@ -96,8 +96,8 @@ export class MessageGraph {
     return rewindId;
   }
 
-  tree(headId: string | null): MessageNode | null {
-    if (headId === null) return null;
+  tree(tipId: string | null): MessageNode | null {
+    if (tipId === null) return null;
 
     const sortedInsert = (nodes: MessageNode[], node: MessageNode) => {
       let i = nodes.findIndex((n) => n.age < node.age);
@@ -120,18 +120,18 @@ export class MessageGraph {
       sortedInsert(nodes, { age, message, children });
     }
 
-    return nodes.find((node) => containsMessageId(node, headId)) ?? null;
+    return nodes.find((node) => containsMessageId(node, tipId)) ?? null;
   }
 
   private withMeta(
-    headId: string | null,
+    tipId: string | null,
     messages: ModelMessage[],
     options: AppendMessageOptions,
   ): AskMessage[] {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
 
-    let parentId = headId;
+    let parentId = tipId;
     for (const message of messages) {
       const id = randomUUID();
       appended.push({

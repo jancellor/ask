@@ -8,7 +8,7 @@ export type RewindFilter = (typeof REWIND_FILTERS)[number];
 export type RewindRow = {
   role: AskMessage['role'];
   parentId: string | null;
-  parentIsHead: boolean;
+  parentIsTip: boolean;
   prefillText: string;
   label: string;
   treePrefix: string;
@@ -18,14 +18,14 @@ export type RewindRow = {
 // should be easy by making this a type of filter
 export function flattenTree(agent: Agent, filter: RewindFilter): RewindRow[] {
   const root = agent.messageTree();
-  const headId = agent.headId;
+  const tipId = agent.tipId;
   if (!root) return [];
-  return renderNode(root, headId, filter, 0, 0);
+  return renderNode(root, tipId, filter, 0, 0);
 }
 
 function renderNode(
   node: MessageNode,
-  headId: string | null,
+  tipId: string | null,
   filter: RewindFilter,
   a: number,
   b: number,
@@ -46,13 +46,13 @@ function renderNode(
           : i < l - 1
             ? [a + b, 1]
             : [a + b, 0];
-    return renderNode(child, headId, filter, childA, childB);
+    return renderNode(child, tipId, filter, childA, childB);
   });
   const hasRealOrAppendedChild = childRows.length > 0 || shouldAppendRow;
   const row = {
     role: node.message.role,
     parentId: node.message._meta.parentId,
-    parentIsHead: node.message._meta.parentId === headId,
+    parentIsTip: node.message._meta.parentId === tipId,
     prefillText: node.message.role === 'user' ? prefillText : '',
     label: displayLabel,
     treePrefix: getPrefix(a, b, hasRealOrAppendedChild ? 1 : 0),
@@ -60,7 +60,7 @@ function renderNode(
   const appendedRow = {
     role: node.message.role,
     parentId: node.message._meta.id,
-    parentIsHead: node.message._meta.id === headId,
+    parentIsTip: node.message._meta.id === tipId,
     prefillText: '',
     label: '',
     treePrefix: getPrefix(a + b, 0, 0),

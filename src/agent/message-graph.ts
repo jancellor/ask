@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { type AskMessage, isRewindBoundary } from './messages.js';
-import { SessionStore, type SessionStoreOptions } from './session-store.js';
 import type { ModelMessage } from 'ai';
 import { partition } from 'lodash-es';
+import { type AskMessage, isRewindBoundary } from './message-utils.js';
+import { MessageLog } from './message-log.js';
 
-export type SessionOptions = SessionStoreOptions;
 export type AppendMessageOptions = {
   uiHidden?: boolean;
 };
@@ -15,102 +14,91 @@ export type MessageNode = {
   children: MessageNode[];
 };
 
-export class Session {
+// All methods are designed to work correctly when only a suffix of the full
+// message log is loaded — parent pointers may reference messages we don't have.
+// Currently we load the entire log into memory on startup, which will degrade
+// as the shared log grows. When this becomes a problem, messageLog.read()
+// should accept a suffix limit (e.g. last N lines) instead of reading everything.
+export class MessageGraph {
   private constructor(
-    public headId: string | null,
+    private _lastId: string | null,
     private messagesById: Map<string, AskMessage>,
-    private sessionStore: SessionStore,
+    private messageLog: MessageLog,
   ) {}
 
-  get sessionId(): string {
-    return this.sessionStore.sessionId;
-  }
-
-  static async create(options: SessionOptions): Promise<Session> {
-    const sessionStore = await SessionStore.create(options);
+  static async create(): Promise<MessageGraph> {
+    const messageLog = MessageLog.create();
 
     const messagesById = new Map<string, AskMessage>();
-    let headId: string | null = null;
-    for (const message of await sessionStore.read()) {
+    let lastId: string | null = null;
+    for (const message of await messageLog.read()) {
       const id = message._meta.id;
       if (messagesById.has(id)) {
         throw new Error(`duplicate message ID: ${id}`);
       }
 
-      const parentId = message._meta.parentId;
-      if (parentId !== null && !messagesById.has(parentId)) {
-        throw new Error(
-          `message ${id} references unknown or out-of-order parent: ${parentId}`,
-        );
-      }
-
       messagesById.set(id, message);
-      headId = id;
+      lastId = id;
     }
 
-    return new Session(headId, messagesById, sessionStore);
+    return new MessageGraph(lastId, messagesById, messageLog);
   }
 
-  get messages(): AskMessage[] {
-    const messages: AskMessage[] = [];
-    let currentId = this.headId;
+  has(id: string): boolean {
+    return this.messagesById.has(id);
+  }
+
+  lastId(): string | null {
+    return this._lastId;
+  }
+
+  chain(headId: string | null): AskMessage[] {
+    const chain: AskMessage[] = [];
+    let currentId = headId;
     const seen = new Set<string>();
     while (currentId) {
       if (seen.has(currentId)) {
-        // invariant should already be enforced, but inf loop would be horrible
+        // should be enforced already, but inf loop would be horrible
         throw new Error(`cycle detected in message graph at: ${currentId}`);
       }
       seen.add(currentId);
       const message = this.messagesById.get(currentId);
-      if (!message) throw new Error(`missing message node: ${currentId}`);
-      messages.push(message);
+      if (!message) break;
+      chain.push(message);
       currentId = message._meta.parentId;
     }
 
-    return messages.reverse();
+    return chain.reverse();
   }
 
   async append(
+    headId: string | null,
     messages: ModelMessage[],
     options: AppendMessageOptions,
   ): Promise<AskMessage[]> {
-    if (messages.length === 0) return [];
-
-    const appended = this.withMeta(messages, options);
-    await this.sessionStore.append(appended);
+    if (messages.length === 0) return []; // prevents unnecessary file creation
+    const appended = this.withMeta(headId, messages, options);
+    await this.messageLog.append(appended);
     for (const message of appended) {
       this.messagesById.set(message._meta.id, message);
+      this._lastId = message._meta.id;
     }
-    const last = appended.at(-1);
-    if (last) this.headId = last._meta.id;
     return appended;
   }
 
-  async cleared(): Promise<Session> {
-    return new Session(
-      null,
-      new Map<string, AskMessage>(),
-      await SessionStore.create({}),
-    );
-  }
-
-  async fork(sessionId: string | undefined) {
-    this.sessionStore = await this.sessionStore.forked(sessionId);
-  }
-
-  rewind(rewindId: string | null): void {
+  resolveRewind(rewindId: string | null): string | null {
     while (rewindId !== null) {
       const message = this.messagesById.get(rewindId);
-      if (!message) {
-        throw new Error(`unknown message ID: ${rewindId}`);
-      }
+      if (!message) return null;
       if (isRewindBoundary(message)) break;
       rewindId = message._meta.parentId;
     }
-    this.headId = rewindId;
+    return rewindId;
   }
 
-  getMessageTree(): MessageNode[] {
+  tree(headId: string | null): MessageNode | null {
+    if (headId === null) return null;
+
     const sortedInsert = (nodes: MessageNode[], node: MessageNode) => {
       let i = nodes.findIndex((n) => n.age < node.age);
       if (i === -1) i = nodes.length;
@@ -132,31 +120,37 @@ export class Session {
       sortedInsert(nodes, { age, message, children });
     }
 
-    return nodes;
+    return nodes.find((node) => containsMessageId(node, headId)) ?? null;
   }
 
   private withMeta(
+    headId: string | null,
     messages: ModelMessage[],
     options: AppendMessageOptions,
   ): AskMessage[] {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
 
-    for (const [index, message] of messages.entries()) {
+    let parentId = headId;
+    for (const message of messages) {
       const id = randomUUID();
-      const parent = index === 0 ? this.headId : appended[index - 1]._meta.id;
-
       appended.push({
         ...message,
         _meta: {
           id,
           timestamp,
           uiHidden: options.uiHidden,
-          parentId: parent ?? null,
+          parentId,
         },
       });
+      parentId = id;
     }
 
     return appended;
   }
+}
+
+function containsMessageId(node: MessageNode, messageId: string): boolean {
+  if (node.message._meta.id === messageId) return true;
+  return node.children.some((child) => containsMessageId(child, messageId));
 }

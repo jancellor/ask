@@ -1,5 +1,5 @@
 import { Agent, type AgentOptions } from '../agent/agent.js';
-import { getToolCallParts } from '../agent/messages.js';
+import { getToolCallParts } from '../agent/message-utils.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import {
   renderMarkdown,
@@ -12,16 +12,16 @@ export const RenderOutput = z.enum(['auto', 'always', 'never']);
 export type RenderOutput = z.infer<typeof RenderOutput>;
 
 type RunBatchOptions = {
-  message?: string;
+  prompt?: string;
   agentOptions: AgentOptions;
   renderOutput: RenderOutput;
 };
 
 export async function runBatch(options: RunBatchOptions): Promise<void> {
   const stdin = !process.stdin.isTTY ? await readStdin() : undefined;
-  const message = [options.message, stdin].filter(Boolean).join('\n\n');
-  if (!message)
-    throw new Error('no message provided (pass [message] or pipe stdin)');
+  const prompt = [options.prompt, stdin].filter(Boolean).join('\n\n');
+  if (!prompt)
+    throw new Error('no prompt provided (pass [prompt] or pipe stdin)');
 
   const agent = await Agent.create(options.agentOptions);
   const shouldRenderStdout = shouldRenderOutput(
@@ -37,7 +37,7 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
   shutdownManager.installSignalHandlers();
   shutdownManager.addListener(async () => agent.abortAll());
 
-  const response = await agent.ask(message, (newMessages) => {
+  const response = await agent.ask(prompt, (newMessages) => {
     // should show all intermediate message types, eg assistant text?
     for (const part of getToolCallParts(newMessages)) {
       console.error(

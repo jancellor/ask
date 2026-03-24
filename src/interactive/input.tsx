@@ -10,7 +10,7 @@ const CURSOR_BLINK_MS = 600;
 const DOUBLE_ESCAPE_MS = 300;
 
 type InputProps = {
-  onAsk: (message: string) => Promise<void>;
+  onAsk: (prompt: string) => Promise<void>;
   onAbort: () => Promise<void>;
   onClear: (beforeClear?: () => void) => Promise<void>;
   onRewind: () => Promise<void>;
@@ -175,22 +175,22 @@ export function Input({
         return;
       }
 
-      const message = value.trim();
-      if (!message) {
+      const prompt = value.trim();
+      if (!prompt) {
         return;
       }
 
       clear();
 
-      if (message === CLEAR_COMMAND) {
+      if (prompt === CLEAR_COMMAND) {
         unawaited(
           onClear(() => {
             console.log('[New session]\n');
           }),
         );
       } else {
-        history.onSubmit(message);
-        unawaited(onAsk(message));
+        history.onSubmit(prompt);
+        unawaited(onAsk(prompt));
       }
       return;
     }

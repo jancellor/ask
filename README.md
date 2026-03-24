@@ -12,8 +12,8 @@ It has just one tool, the shell execution tool.
 - Code editing is via shell execution and tools like `cat`, `sd`, `rg` and `fd`.
 - Supports `AGENTS.md` and agent skills in `.agents` directories.
 - Batch mode is first class, eg `cat code.js | ask "explain this"`.
-- Saves sessions to `~/.ask/sessions` and supports resuming/forking.
-- The agent knows where sessions are stored and what the format is.
+- Saves messages to `~/.ask/messages/messages.jsonl` and supports resuming.
+- The agent knows where messages are stored and what the format is.
 - Background tasks just use `&` and system prompt guidance (`.pid` files, output redirection).
 - Subagent patterns are therefore just self-invocation, using background processes and reflective session inspection where appropriate.
 - Interactive mode (TUI) is basic but pretty-prints markdown and code.
@@ -155,12 +155,9 @@ ask -c -v                    # Clear the saved variant
 ask                          # Interactive mode
 ask "refactor"               # Batch mode (single positional arg)
 cat file.ts | ask "explain"  # Pipe context, ask a question
-ask --resume                 # Resume most recent session (interactive)
-ask --resume <uuid>          # Resume a specific session
-ask --resume -- "refactor"   # Resume most recent session in batch mode
-ask --fork                   # Fork most recent session into a new session (interactive)
-ask --fork -- "try this"     # Fork most recent session in batch mode
-ask --resume <uuid> --fork   # Fork a specific session into a new session
+ask --resume                 # Resume from most recent message (interactive)
+ask --resume <id>            # Resume from a specific message
+ask --resume -- "refactor"   # Resume from most recent message in batch mode
 ask --help                   # More options
 ```
 
@@ -172,8 +169,8 @@ import { ask, Agent } from '@jancellor/ask';
 const text = await ask('Refactor this function');
 
 const agent = await Agent.create({});
-await agent.ask('message');
-console.log(agent.messages);
+await agent.ask('prompt');
+console.log(agent.messages());
 ```
 
 ## Architecture
@@ -185,5 +182,5 @@ User input
       → execute({ command }) — bash -c with timeout
       → stdout/stderr/exit code returned to model
     → Loop until no more tool calls
-  → Append messages to session JSONL
+  → Append messages to message log JSONL
 ```

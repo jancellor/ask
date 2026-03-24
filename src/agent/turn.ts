@@ -6,12 +6,9 @@ import {
 } from 'ai';
 import { generateText } from './generate-text.js';
 import { type ResolvedConfig } from './config.js';
-import { type AskMessage, extractFinalAssistantText } from './messages.js';
+import { type AskMessage, extractFinalAssistantText } from './message-utils.js';
 import { Tools } from './tools.js';
 import { SystemPrompt } from './system-prompt.js';
-
-export type { AskMessage, AskMessageMeta } from './messages.js';
-export type { MessageNode } from './session.js';
 
 export const ERROR_MESSAGE = '[Error]';
 

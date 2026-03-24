@@ -100,17 +100,14 @@ overall accuracy is typically improved.
 Also, by invoking multiple subagents in a single turn, you can achieve parallelism
 and therefore faster performance for tasks that are truly independent.
 
-## Session storage
+## Message storage
 
-When `ask` runs, messages are persisted to `~/.ask/sessions/<id>.jsonl` as AI SDK messages.
-IDs must be UUIDs.
+When `ask` runs, messages are persisted to `~/.ask/messages/messages.jsonl`.
 Each line is an AI SDK `ModelMessage` with additional metadata in a `_meta` property.
-Conversations are usually linear message lists, but may be trees implied by `_meta.id` and `_meta.parentId`.
-When using subagents, consider passing an explicit session ID via `ask --resume <id> ...`.
-This allows you to inspect the context of the subagent, though note that
-usually you explicitly don't want the subagent context in your own.
-This also allows you ask a subagent follow up question by supplying the same session ID twice.
-It may be useful to make focused searches of the subagent context.
+Messages form a DAG via `_meta.id` and `_meta.parentId`.
+A linear conversation is a chain.
+Branches occur when two messages share the same parent.
+All conversations share a single append-only log file.
 
 ## Web
 
@@ -127,21 +124,21 @@ You may invoke copies of yourself directly or from code to help you achieve your
 When invoking Ask from JS/TS, prefer the `ask` function to an `ask` subprocesses.
 
 ```bash
-ask "message"
-echo "message" | ask
-cat file | ask "summarize this:" # message is concatenated with stdin
+ask "prompt"
+echo "prompt" | ask
+cat file | ask "summarize this:" # prompt is concatenated with stdin
 ```
 
 ```ts
 import { ask } from '@jancellor/ask';
 
-console.log(await ask('message'));
+console.log(await ask('prompt'));
 ```
 
 ```ts
 import { Agent } from '@jancellor/ask';
 
 const agent = await Agent.create({});
-const response = await agent.ask('message', (messages) => {});
+const response = await agent.ask('prompt', (messages) => {});
 console.log(response);
 ```

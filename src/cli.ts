@@ -12,20 +12,18 @@ async function main(): Promise<void> {
     .option('-m, --model <model>', 'model to use for this run')
     .option('-v, --variant [variant]', 'variant to use (or none)')
     .option('-c, --config', 'set/show current config and exit')
-    .option('-r, --resume [id]', 'read from given (or last) session')
-    .option('-f, --fork [id]', 'write to given (or random) session')
+    .option('-r, --resume [id]', 'resume from given (or last) message')
     .option('-i, --interactive', 'force interactive mode')
     .option('-b, --batch', 'force batch mode')
     .option('--render-output <when>', '(auto, always, never)', 'auto')
     .addHelpText(
       'after',
-      '\nUse -- before message if ambiguous (eg ask -r -- "follow up question")',
+      '\nUse -- before prompt if ambiguous (eg ask -r -- "follow up question")',
     )
-    .argument('[message]');
+    .argument('[prompt]');
   program.parse(process.argv);
   const opts = program.opts<{
     resume?: string | true;
-    fork?: true | string;
     provider?: string;
     model?: string;
     variant?: string | true;
@@ -34,7 +32,7 @@ async function main(): Promise<void> {
     batch?: true;
     renderOutput: string;
   }>();
-  const message = program.args[0] as string | undefined;
+  const prompt = program.args[0] as string | undefined;
 
   const variant = opts.variant === true ? null : opts.variant;
   const configOptions = {
@@ -54,13 +52,12 @@ async function main(): Promise<void> {
 
   const useInteractive =
     mode == 'interactive' ||
-    (mode == 'auto' && process.stdin.isTTY && message === undefined);
+    (mode == 'auto' && process.stdin.isTTY && prompt === undefined);
 
   const renderOutput = parseRenderOutput(opts.renderOutput);
 
   const agentOptions = {
     resume: opts.resume,
-    fork: opts.fork,
     ...configOptions,
   };
 
@@ -69,7 +66,7 @@ async function main(): Promise<void> {
   } else if (useInteractive) {
     await runInteractive({ agentOptions });
   } else {
-    await runBatch({ message, agentOptions, renderOutput });
+    await runBatch({ prompt, agentOptions, renderOutput });
   }
 }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Agent, type AgentOptions } from '../agent/agent.js';
-import type { AskMessage } from '../agent/messages.js';
+import type { AskMessage } from '../agent/message-utils.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 
 import { unawaited } from '../unawaited/unawaited.js';
@@ -17,7 +17,7 @@ export type UseAgentResult = {
   provider: string;
   variant: string | null;
   pendingOperation: boolean;
-  ask: (message: string) => Promise<void>;
+  ask: (prompt: string) => Promise<void>;
   abort: () => Promise<void>;
   clear: (beforeClear?: () => void) => Promise<void>;
   rewind: (rewindId: string | null) => Promise<void>;
@@ -74,7 +74,7 @@ export function useAgent({
 
   useEffect(() => {
     if (!agent) return;
-    setMessages([...agent.messages]);
+    setMessages([...agent.messages()]);
   }, [agent]);
 
   const runWithPendingOperation = useCallback(
@@ -90,10 +90,10 @@ export function useAgent({
   );
 
   const ask = useCallback(
-    (message: string): Promise<void> => {
+    (prompt: string): Promise<void> => {
       if (!agent) return Promise.resolve();
       return runWithPendingOperation(() =>
-        agent.ask(message, () => setMessages([...agent.messages])),
+        agent.ask(prompt, () => setMessages([...agent.messages()])),
       );
     },
     [agent, runWithPendingOperation],
@@ -109,7 +109,7 @@ export function useAgent({
       if (!agent) return Promise.resolve();
       return runWithPendingOperation(async () => {
         await agent.clear(beforeClear);
-        setMessages([...agent.messages]);
+        setMessages([...agent.messages()]);
       });
     },
     [agent, runWithPendingOperation],
@@ -120,7 +120,7 @@ export function useAgent({
       if (!agent) return Promise.resolve();
       return runWithPendingOperation(async () => {
         await agent.rewind(rewindId);
-        setMessages([...agent.messages]);
+        setMessages([...agent.messages()]);
       });
     },
     [agent, runWithPendingOperation],

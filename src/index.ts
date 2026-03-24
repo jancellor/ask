@@ -4,9 +4,9 @@ export { Agent } from './agent/agent.js';
 export { ConfigReader } from './agent/config.js';
 
 export async function ask(
-  message: string,
+  prompt: string,
   options: AgentOptions = {},
 ): Promise<string> {
   const agent = await Agent.create(options);
-  return await agent.ask(message);
+  return await agent.ask(prompt);
 }

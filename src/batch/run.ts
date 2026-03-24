@@ -45,7 +45,6 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
       );
     }
   });
-
   const output = shouldRenderStdout ? renderMarkdown(response) : response;
   console.log(output);
 }

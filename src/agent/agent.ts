@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { type ModelMessage } from 'ai';
 import {
   type ConfigOptions,
@@ -24,7 +23,6 @@ export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
   private turn: Turn;
-  private sessionId = randomUUID();
   private queue = new TaskQueue();
 
   private constructor(
@@ -41,14 +39,20 @@ export class Agent {
       new ConfigReader().resolve(options),
     ]);
 
-    const tipId = !options.resume
-      ? null
-      : typeof options.resume === 'string'
-        ? options.resume
-        : messageGraph.lastId();
+    let tipId: string | null = null;
 
-    if (tipId !== null && !messageGraph.has(tipId)) {
-      throw new Error(`unknown message ID: ${tipId}`);
+    if (options.resume) {
+      const resumeId =
+        typeof options.resume === 'string'
+          ? options.resume
+          : messageGraph.lastId();
+
+      if (resumeId !== null) {
+        if (!messageGraph.has(resumeId)) {
+          throw new Error(`unknown message ID: ${resumeId}`);
+        }
+        tipId = resumeId;
+      }
     }
 
     return new Agent(tipId, messageGraph, config);
@@ -92,8 +96,7 @@ export class Agent {
           ms,
           options,
         );
-        const last = appended.at(-1);
-        if (last) this._tipId = last._meta.id;
+        this._tipId = appended.at(-1)?._meta.id ?? this._tipId;
         await onMessages?.(appended);
       };
 
@@ -102,7 +105,6 @@ export class Agent {
 
       return this.turn.ask(
         this.messages(),
-        this.sessionId,
         signal,
         async (newMessages, options) => {
           await push(newMessages, options ?? {});
@@ -126,9 +128,9 @@ export class Agent {
     }, true);
   }
 
-  async rewind(rewindId: string | null): Promise<void> {
+  async rewind(messageId: string | null): Promise<void> {
     await this.queue.submit(async () => {
-      const resolved = this.messageGraph.resolveRewind(rewindId);
+      const resolved = this.messageGraph.rewindBoundary(messageId);
       // null means we walked past the loaded suffix — don't rewind.
       // Use clear() to reset to an empty conversation.
       if (resolved !== null) this._tipId = resolved;

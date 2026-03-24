@@ -9,7 +9,7 @@ import {
 } from './rewind-flatten-tree.js';
 
 export type RewindSelection = {
-  rewindId: string | null;
+  messageId: string | null;
   prefillText: string;
 };
 
@@ -130,7 +130,7 @@ export function Rewind({ agent, onClose, onSelect }: RewindProps) {
       const row = rows[cursor];
       if (!row) return;
       onSelect({
-        rewindId: row.parentId,
+        messageId: row.parentId,
         prefillText: row.prefillText,
       });
       return;

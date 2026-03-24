@@ -20,7 +20,7 @@ export type UseAgentResult = {
   ask: (prompt: string) => Promise<void>;
   abort: () => Promise<void>;
   clear: (beforeClear?: () => void) => Promise<void>;
-  rewind: (rewindId: string | null) => Promise<void>;
+  rewind: (messageId: string | null) => Promise<void>;
 };
 
 export function useAgent({
@@ -116,10 +116,10 @@ export function useAgent({
   );
 
   const rewind = useCallback(
-    (rewindId: string | null): Promise<void> => {
+    (messageId: string | null): Promise<void> => {
       if (!agent) return Promise.resolve();
       return runWithPendingOperation(async () => {
-        await agent.rewind(rewindId);
+        await agent.rewind(messageId);
         setMessages([...agent.messages()]);
       });
     },

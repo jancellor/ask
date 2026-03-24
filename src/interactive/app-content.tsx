@@ -38,7 +38,7 @@ export function AppContent({
   const handleRewindSelect = (selection: RewindSelection) => {
     unawaited(
       (async () => {
-        await rewind(selection.rewindId);
+        await rewind(selection.messageId);
         setPrefillText(selection.prefillText);
         setRewindOpen(false);
       })(),

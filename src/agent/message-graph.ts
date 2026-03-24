@@ -52,9 +52,34 @@ export class MessageGraph {
     return this._lastId;
   }
 
-  thread(tipId: string | null): AskMessage[] {
+  async append(
+    parentId: string | null,
+    messages: ModelMessage[],
+    options: AppendMessageOptions,
+  ): Promise<AskMessage[]> {
+    if (messages.length === 0) return []; // prevents unnecessary file creation
+    const appended = this.withMeta(parentId, messages, options);
+    await this.messageLog.append(appended);
+    for (const message of appended) {
+      this.messagesById.set(message._meta.id, message);
+      this._lastId = message._meta.id;
+    }
+    return appended;
+  }
+
+  rewindBoundary(id: string | null): string | null {
+    while (id !== null) {
+      const message = this.messagesById.get(id);
+      if (!message) return null;
+      if (isRewindBoundary(message)) break;
+      id = message._meta.parentId;
+    }
+    return id;
+  }
+
+  thread(id: string | null): AskMessage[] {
     const thread: AskMessage[] = [];
-    let currentId = tipId;
+    let currentId = id;
     const seen = new Set<string>();
     while (currentId) {
       if (seen.has(currentId)) {
@@ -71,33 +96,8 @@ export class MessageGraph {
     return thread.reverse();
   }
 
-  async append(
-    tipId: string | null,
-    messages: ModelMessage[],
-    options: AppendMessageOptions,
-  ): Promise<AskMessage[]> {
-    if (messages.length === 0) return []; // prevents unnecessary file creation
-    const appended = this.withMeta(tipId, messages, options);
-    await this.messageLog.append(appended);
-    for (const message of appended) {
-      this.messagesById.set(message._meta.id, message);
-      this._lastId = message._meta.id;
-    }
-    return appended;
-  }
-
-  resolveRewind(rewindId: string | null): string | null {
-    while (rewindId !== null) {
-      const message = this.messagesById.get(rewindId);
-      if (!message) return null;
-      if (isRewindBoundary(message)) break;
-      rewindId = message._meta.parentId;
-    }
-    return rewindId;
-  }
-
-  tree(tipId: string | null): MessageNode | null {
-    if (tipId === null) return null;
+  tree(id: string | null): MessageNode | null {
+    if (id === null) return null;
 
     const sortedInsert = (nodes: MessageNode[], node: MessageNode) => {
       let i = nodes.findIndex((n) => n.age < node.age);
@@ -120,18 +120,17 @@ export class MessageGraph {
       sortedInsert(nodes, { age, message, children });
     }
 
-    return nodes.find((node) => containsMessageId(node, tipId)) ?? null;
+    return nodes.find((node) => containsMessageId(node, id)) ?? null;
   }
 
   private withMeta(
-    tipId: string | null,
+    parentId: string | null,
     messages: ModelMessage[],
     options: AppendMessageOptions,
   ): AskMessage[] {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
 
-    let parentId = tipId;
     for (const message of messages) {
       const id = randomUUID();
       appended.push({
@@ -150,7 +149,7 @@ export class MessageGraph {
   }
 }
 
-function containsMessageId(node: MessageNode, messageId: string): boolean {
-  if (node.message._meta.id === messageId) return true;
-  return node.children.some((child) => containsMessageId(child, messageId));
+function containsMessageId(node: MessageNode, id: string): boolean {
+  if (node.message._meta.id === id) return true;
+  return node.children.some((child) => containsMessageId(child, id));
 }

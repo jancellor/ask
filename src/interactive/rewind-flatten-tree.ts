@@ -53,7 +53,7 @@ function renderNode(
     role: node.message.role,
     parentId: node.message._meta.parentId,
     parentIsHead: node.message._meta.parentId === headId,
-    prefillText,
+    prefillText: node.message.role === 'user' ? prefillText : '',
     label: displayLabel,
     treePrefix: getPrefix(a, b, hasRealOrAppendedChild ? 1 : 0),
   };

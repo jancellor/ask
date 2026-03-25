@@ -18,7 +18,7 @@ export type AgentOptions = ConfigOptions & {
   resume?: string | true;
 };
 
-export const ABORTED_MESSAGE = '[Aborted]';
+export const CANCELED_MESSAGE = '[Canceled]';
 export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
@@ -113,12 +113,12 @@ export class Agent {
     });
   }
 
-  async abortCurrent(): Promise<void> {
-    await this.queue.abortCurrent();
+  async cancelCurrent(): Promise<void> {
+    await this.queue.cancelCurrent();
   }
 
-  async abortAll(): Promise<void> {
-    await this.queue.abortAll();
+  async cancelAll(): Promise<void> {
+    await this.queue.cancelAll();
   }
 
   async clear(beforeClear?: () => void): Promise<void> {

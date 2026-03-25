@@ -11,7 +11,7 @@ const DOUBLE_ESCAPE_MS = 300;
 
 type InputProps = {
   onAsk: (prompt: string) => Promise<void>;
-  onAbort: () => Promise<void>;
+  onCancel: () => Promise<void>;
   onClear: (beforeClear?: () => void) => Promise<void>;
   onRewind: () => Promise<void>;
   onRequestShutdown: () => void;
@@ -20,7 +20,7 @@ type InputProps = {
 
 export function Input({
   onAsk,
-  onAbort,
+  onCancel,
   onClear,
   onRewind,
   onRequestShutdown,
@@ -84,7 +84,7 @@ export function Input({
         setEscapePending(false);
         unawaited(onRewind());
       } else {
-        unawaited(onAbort());
+        unawaited(onCancel());
         if (value === '') setEscapePending(true);
       }
       return;

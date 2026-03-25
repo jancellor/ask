@@ -18,7 +18,7 @@ export type UseAgentResult = {
   variant: string | null;
   pendingOperation: boolean;
   ask: (prompt: string) => Promise<void>;
-  abort: () => Promise<void>;
+  cancel: () => Promise<void>;
   clear: (beforeClear?: () => void) => Promise<void>;
   rewind: (messageId: string | null) => Promise<void>;
 };
@@ -41,7 +41,7 @@ export function useAgent({
       if (!disposePromise) {
         disposePromise = (async () => {
           const createdAgent = await createPromise;
-          await createdAgent.abortAll();
+          await createdAgent.cancelAll();
         })();
       }
       return disposePromise;
@@ -99,9 +99,9 @@ export function useAgent({
     [agent, runWithPendingOperation],
   );
 
-  const abort = useCallback((): Promise<void> => {
+  const cancel = useCallback((): Promise<void> => {
     if (!agent) return Promise.resolve();
-    return runWithPendingOperation(() => agent.abortCurrent());
+    return runWithPendingOperation(() => agent.cancelCurrent());
   }, [agent, runWithPendingOperation]);
 
   const clear = useCallback(
@@ -136,7 +136,7 @@ export function useAgent({
     variant: agent.variant,
     pendingOperation,
     ask,
-    abort,
+    cancel,
     clear,
     rewind,
   };

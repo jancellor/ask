@@ -35,7 +35,7 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
 
   const shutdownManager = new ShutdownManager();
   shutdownManager.installSignalHandlers();
-  shutdownManager.addListener(async () => agent.abortAll());
+  shutdownManager.addListener(async () => agent.cancelAll());
 
   const response = await agent.ask(prompt, (newMessages) => {
     // should show all intermediate message types, eg assistant text?

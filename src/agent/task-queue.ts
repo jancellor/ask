@@ -7,9 +7,9 @@ export class TaskQueue {
 
   submit<T>(
     task: (signal: AbortSignal) => Promise<T>,
-    abortAll = false,
+    cancelAll = false,
   ): Promise<T> {
-    if (abortAll) {
+    if (cancelAll) {
       this.currentController?.abort();
       this.generation++;
     }
@@ -28,14 +28,14 @@ export class TaskQueue {
     })());
   }
 
-  async abortCurrent(): Promise<void> {
+  async cancelCurrent(): Promise<void> {
     this.currentController?.abort();
     try {
       await this.tail;
     } catch {}
   }
 
-  async abortAll(): Promise<void> {
+  async cancelAll(): Promise<void> {
     this.currentController?.abort();
     this.generation++;
     try {

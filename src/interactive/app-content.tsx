@@ -23,7 +23,7 @@ export function AppContent({
     variant,
     pendingOperation,
     ask,
-    abort,
+    cancel,
     clear,
     rewind,
   } = useAgentResult;
@@ -68,7 +68,7 @@ export function AppContent({
       ) : (
         <Input
           onAsk={ask}
-          onAbort={abort}
+          onCancel={cancel}
           onClear={clear}
           onRewind={handleOpenRewind}
           onRequestShutdown={onRequestShutdown}

@@ -18,6 +18,7 @@ Guidelines:
 - When summarizing your actions, reply with plain text directly.
 - Be concise in your responses.
 - Show file paths clearly when working with files.
+- Only write outside the CWD when the task clearly requires it.
 
 ## Searching
 

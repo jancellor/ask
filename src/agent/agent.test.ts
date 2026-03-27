@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Agent } from './agent.js';
 import { ConfigReader, type ResolvedConfig } from './config.js';
+import { generateText } from './generate-text.js';
+import { InitPrompt } from './init-prompt.js';
 import { MessageLog } from './message-log.js';
 import type { AskMessage } from './message-utils.js';
+
+vi.mock('./generate-text.js', () => ({
+  generateText: vi.fn(),
+}));
 
 function mockLog(messages: AskMessage[]) {
   vi.spyOn(MessageLog, 'create').mockReturnValue({
@@ -23,6 +29,8 @@ function mockConfig() {
     languageModel: {} as ResolvedConfig['languageModel'],
   });
 }
+
+const mockedGenerateText = vi.mocked(generateText);
 
 describe('Agent.create resume behavior', () => {
   beforeEach(() => {
@@ -75,5 +83,42 @@ describe('Agent.create resume behavior', () => {
     await expect(Agent.create({ resume: 'missing' })).rejects.toThrow(
       'unknown message ID: missing',
     );
+  });
+});
+
+describe('Agent.ask', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockLog([]);
+    mockConfig();
+    vi.spyOn(InitPrompt.prototype, 'build').mockResolvedValue('');
+    mockedGenerateText.mockResolvedValue({
+      response: {
+        messages: [{ role: 'assistant', content: 'reply' }],
+      },
+      toolCalls: [],
+    });
+  });
+
+  it('keeps agent.messages() in sync inside onMessages callbacks', async () => {
+    const agent = await Agent.create({});
+    const snapshots: string[][] = [];
+
+    const text = await agent.ask('hello', () => {
+      snapshots.push(
+        agent
+          .messages()
+          .map((message) =>
+            typeof message.content === 'string' ? message.content : '',
+          ),
+      );
+    });
+
+    expect(text).toBe('reply');
+    expect(snapshots).toEqual([['hello'], ['hello', 'reply']]);
+    expect(agent.messages().map((message) => message.content)).toEqual([
+      'hello',
+      'reply',
+    ]);
   });
 });

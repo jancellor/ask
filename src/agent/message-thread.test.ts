@@ -10,7 +10,7 @@ function mockLog(messages: AskMessage[]) {
   } as unknown as MessageLog);
 }
 
-describe('messageThread suffix loading', () => {
+describe('messageGraph suffix loading', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -31,7 +31,7 @@ describe('messageThread suffix loading', () => {
 
     const loaded = await MessageGraph.create();
 
-    expect(loaded.thread('c').map((message) => message._meta.id)).toEqual([
+    expect(loaded.branch('c').map((message) => message._meta.id)).toEqual([
       'b',
       'c',
     ]);
@@ -62,7 +62,7 @@ describe('append', () => {
     vi.restoreAllMocks();
   });
 
-  it('starts a new thread when no parent is given', async () => {
+  it('starts a new tree when no parent is given', async () => {
     mockLog([
       {
         role: 'user',
@@ -81,7 +81,7 @@ describe('append', () => {
     expect(appended[0]!._meta.parentId).toBeNull();
   });
 
-  it('threads appended messages through the provided parent', async () => {
+  it('appends messages through the provided parent', async () => {
     mockLog([
       {
         role: 'user',

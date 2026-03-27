@@ -63,7 +63,7 @@ Target responsibility for `Turn`:
 - hold `messageGraph`
 - hold `parentId`
 - hold `pendingMessageId`
-- build the initial thread from `parentId`
+- build the initial branch from `parentId`
 - append the user prompt
 - append intermediate assistant/tool messages
 - append the final assistant message using `pendingMessageId`
@@ -73,7 +73,6 @@ Likely API direction:
 - `Turn` constructor/factory accepts `messageGraph`, config, `parentId`, and
   `pendingMessageId`
 - `Turn.ask(prompt, onMessages)` remains the execution entrypoint
-- `Turn.ask()` builds its own initial thread from `parentId`
 
 Why this step:
 

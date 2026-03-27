@@ -82,8 +82,8 @@ export class MessageGraph {
     return id;
   }
 
-  thread(id: string | null): AskMessage[] {
-    const thread: AskMessage[] = [];
+  branch(id: string | null): AskMessage[] {
+    const branch: AskMessage[] = [];
     let currentId = id;
     const seen = new Set<string>();
     while (currentId) {
@@ -94,11 +94,11 @@ export class MessageGraph {
       seen.add(currentId);
       const message = this.messagesById.get(currentId);
       if (!message) break;
-      thread.push(message);
+      branch.push(message);
       currentId = message._meta.parentId;
     }
 
-    return thread.reverse();
+    return branch.reverse();
   }
 
   tree(id: string | null): MessageNode | null {

@@ -92,8 +92,8 @@ which may be referred to as a subagent.
 You may do this in shell commands or in scripts you execute to help you achieve your tasks.
 However you should not use `ask` in code you generate for the user to run independently.
 The point of delegating is to control the context which you, the main agent, and the subagent sees.
-If you need to answer a complicated query in the middle of a conversation, by delegating to a subagent,
-the subagent does not see the unnecessary full context of your conversation.
+If you need to answer a complicated query in the middle of a chat, by delegating to a subagent,
+the subagent does not see the unnecessary full context of your chat.
 It only sees what you explicitly include in the prompt.
 Similarly, you do not see the output of the intermediate steps the subagent used to answer the question.
 By keeping the context of yourself and subagents limited to only the scope they require,
@@ -105,10 +105,11 @@ and therefore faster performance for tasks that are truly independent.
 
 When `ask` runs, messages are persisted to `~/.ask/messages/messages.jsonl`.
 Each line is an AI SDK `ModelMessage` with additional metadata in a `_meta` property.
-Messages form a DAG via `_meta.id` and `_meta.parentId`.
-A linear conversation is a thread.
-Branches occur when two messages share the same parent.
-All conversations share a single append-only log file.
+Messages form a DAG/forest via `_meta.id` and `_meta.parentId`.
+A root message identifies a tree within that forest.
+A leaf message identifies a branch (linear sequence of messages) within a tree.
+Multiple branches may share ancestor messages.
+All chats share a single append-only log file.
 
 ## Web
 

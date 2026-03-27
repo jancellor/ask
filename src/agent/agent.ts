@@ -1,12 +1,9 @@
-import { type ModelMessage } from 'ai';
 import {
   type ConfigOptions,
   ConfigReader,
   type ResolvedConfig,
 } from './config.js';
-import { InitPrompt } from './init-prompt.js';
 import { AskMessage } from './message-utils.js';
-import type { AppendMessageOptions } from './message-graph.js';
 import { type MessageNode, MessageGraph } from './message-graph.js';
 import { TaskQueue } from './task-queue.js';
 import { Turn } from './turn.js';
@@ -22,16 +19,13 @@ export const CANCELED_MESSAGE = '[Canceled]';
 export const ERROR_MESSAGE = '[Error]';
 
 export class Agent {
-  private turn: Turn;
   private queue = new TaskQueue();
 
   private constructor(
     private _tipId: string | null,
     private messageGraph: MessageGraph,
     private config: ResolvedConfig,
-  ) {
-    this.turn = Turn.fromConfig(config);
-  }
+  ) {}
 
   static async create(options: AgentOptions): Promise<Agent> {
     const [messageGraph, config] = await Promise.all([
@@ -63,7 +57,7 @@ export class Agent {
   }
 
   messages(): AskMessage[] {
-    return this.messageGraph.thread(this._tipId);
+    return this.messageGraph.branch(this._tipId);
   }
 
   messageTree(): MessageNode | null {
@@ -87,29 +81,17 @@ export class Agent {
     onMessages?: (messages: AskMessage[]) => void | Promise<void>,
   ): Promise<string> {
     return this.queue.submit(async (signal) => {
-      const push = async (
-        ms: ModelMessage[],
-        options: AppendMessageOptions,
-      ) => {
-        const appended = await this.messageGraph.append(
-          this._tipId,
-          ms,
-          options,
-        );
-        this._tipId = appended.at(-1)?._meta.id ?? this._tipId;
-        await onMessages?.(appended);
+      const turn = Turn.create(this.config, this.messageGraph, this._tipId);
+      signal.addEventListener('abort', () => turn.cancel(), { once: true });
+
+      const turnOnMessages = async (messages: AskMessage[]) => {
+        this._tipId = turn.parentId;
+        await onMessages?.(messages);
       };
 
-      await this.addInitialMessages(push);
-      await push([{ role: 'user', content: prompt }], {});
-
-      return this.turn.ask(
-        this.messages(),
-        signal,
-        async (newMessages, options) => {
-          await push(newMessages, options ?? {});
-        },
-      );
+      const result = await turn.ask(prompt, turnOnMessages);
+      this._tipId = turn.parentId;
+      return result;
     });
   }
 
@@ -135,17 +117,5 @@ export class Agent {
       // Use clear() to reset to an empty conversation.
       if (resolved !== null) this._tipId = resolved;
     }, true);
-  }
-
-  private async addInitialMessages(
-    push: (
-      messages: ModelMessage[],
-      options: AppendMessageOptions,
-    ) => void | Promise<void>,
-  ) {
-    if (this._tipId !== null) return;
-    const initContent = await new InitPrompt().build();
-    if (!initContent) return;
-    await push([{ role: 'user', content: initContent }], { uiHidden: true });
   }
 }

@@ -113,4 +113,49 @@ describe('append', () => {
     expect(appended[0]!._meta.parentId).toBe('c');
     expect(appended[1]!._meta.parentId).toBe(appended[0]!._meta.id);
   });
+
+  it('uses an explicit lastId when appending one message', async () => {
+    mockLog([]);
+
+    const graph = await MessageGraph.create();
+    const appended = await graph.append(
+      null,
+      [{ role: 'assistant', content: 'final' }],
+      { lastId: 'pending-id' },
+    );
+
+    expect(appended[0]!._meta.id).toBe('pending-id');
+  });
+
+  it('uses an explicit lastId only for the final appended message', async () => {
+    mockLog([]);
+
+    const graph = await MessageGraph.create();
+    const appended = await graph.append(
+      null,
+      [
+        { role: 'user', content: 'one' },
+        { role: 'assistant', content: 'two' },
+      ],
+      { lastId: 'pending-id' },
+    );
+
+    expect(appended[0]!._meta.id).not.toBe('pending-id');
+    expect(appended[1]!._meta.id).toBe('pending-id');
+    expect(appended[1]!._meta.parentId).toBe(appended[0]!._meta.id);
+  });
+});
+
+describe('pendingId', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns different ids for separate allocations', async () => {
+    mockLog([]);
+
+    const graph = await MessageGraph.create();
+
+    expect(graph.pendingId()).not.toBe(graph.pendingId());
+  });
 });

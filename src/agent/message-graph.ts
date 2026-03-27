@@ -5,6 +5,7 @@ import { type AskMessage, isRewindBoundary } from './message-utils.js';
 import { MessageLog } from './message-log.js';
 
 export type AppendMessageOptions = {
+  lastId?: string;
   uiHidden?: boolean;
 };
 
@@ -50,6 +51,10 @@ export class MessageGraph {
 
   lastId(): string | null {
     return this._lastId;
+  }
+
+  pendingId(): string {
+    return randomUUID();
   }
 
   async append(
@@ -131,8 +136,9 @@ export class MessageGraph {
     const timestamp = new Date().toISOString();
     const appended: AskMessage[] = [];
 
-    for (const message of messages) {
-      const id = randomUUID();
+    for (const [index, message] of messages.entries()) {
+      const isLast = index === messages.length - 1;
+      const id = isLast && options.lastId ? options.lastId : this.pendingId();
       appended.push({
         ...message,
         _meta: {

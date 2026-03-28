@@ -1,274 +1,380 @@
-# Refactor Plan: Turn Server And Pending Message IDs
+# Refactor Plan: Leaf-First Server Alignment
 
-This plan breaks the refactor into small steps so each change can land and be
-validated independently.
+This plan updates the older turn-server refactor notes so they match
+[`docs/SERVER_SPEC.md`](./SERVER_SPEC.md), which should be treated as the more
+authoritative design.
+
+The key correction is:
+
+- `Turn` may still exist internally as execution machinery
+- but the public server model is a `leaf`, not a `turn`
+- and pending + complete continuation points must share one id
+
+The steps below aim to move the codebase toward that model in reviewable
+increments.
 
 ## Goal
 
 Move from the current model:
 
-- `Agent` owns one long-lived `Turn`
-- `Agent` owns the append-to-graph flow for each `ask()`
-- cancellation is scoped to "current task on this agent"
+- `Agent` owns one long-lived detached head and constructs `Turn` directly
+- `Agent` owns most ask lifecycle and cancellation behavior
+- durable graph writes and in-memory execution are tightly coupled
+- pending work is not represented as a first-class leaf identity
 
 to the target model:
 
-- each `ask()` creates a new `Turn`
-- a `Turn` represents the whole execution record for one in-progress or
-  completed continuation
-- turns are indexed by `pendingMessageId`
-- `pendingMessageId` is the actual future assistant message id
-- `Agent` becomes a client-side detached-head convenience wrapper
-- an in-process server object owns active turns during the refactor
-- a continuation point is always identified by exactly one id:
-  either a pending `pendingMessageId` in memory or a complete `messageId` on
-  disk
+- each new ask creates and starts one pending leaf immediately
+- the pending leaf id is the exact future final assistant `messageId`
+- active in-memory execution is owned by a server-side controller
+- completed state remains durable only in `MessageGraph`
+- clients interact with leaves plus graph-level message reads, not public turn
+  objects
+- `Agent` becomes a leaf-following detached-head client convenience wrapper
 
 ## Constraints
 
 - keep each step small enough to review and adjust before continuing
-- prefer changes that move toward the eventual server boundary, even if the
+- prefer changes that move toward the eventual server boundary even if the
   server is initially only in-process
-- avoid changing transport or streaming semantics until the core ownership model
-  is stable
+- preserve current behavior unless the spec explicitly requires a change
+- do not introduce a second durable store for completed turns or leaves
 
-## Step 1: Add Pending ID Allocation To MessageGraph
+## Guiding Model
 
-Add a lightweight way for `MessageGraph` to mint a pending assistant message id
-before execution starts.
+The model from the server spec should be treated as canonical:
 
-Proposed change:
+- a complete leaf is a durable message-graph leaf
+- a pending leaf is an in-progress continuation that exists only in memory
+- the pending leaf id is reserved up front and becomes the final assistant
+  message id on success
+- the public API is leaf-first
+- creating a pending leaf and starting its first ask are one operation
 
-- add `MessageGraph.pendingId()` that returns a fresh random UUID
-- extend `AppendMessageOptions` with optional `lastId?: string`
-- if `lastId` is provided, use it for the final appended message
-- keep the current random id behavior as the default when no explicit id is
-  supplied
+Implication:
+
+- `Turn` is now an internal implementation detail unless and until a strong
+  reason appears to expose it
+
+## Step 1: Finish And Confirm Pending Final-Message IDs
+
+Ensure `MessageGraph` supports the single-id model required by the spec.
+
+Required behavior:
+
+- mint a fresh id before execution starts
+- allow the final appended assistant message to use that exact id
+- keep the existing default behavior for intermediate appended messages
+
+Likely code shape:
+
+- keep `MessageGraph.pendingId()`
+- keep `AppendMessageOptions.lastId?: string`
+- use `lastId` only for the final appended message in a batch
 
 Why first:
 
-- `pendingMessageId` must be allocated before execution starts
-- the final assistant message must be written using that exact id
-- later steps depend on this behavior
+- every later step depends on the ability to reserve the future leaf id
 
 Things to watch:
 
-- do not add an expensive duplicate-id validation pass here
-- accept that a minted pending id is a best-effort reservation, not a hard
-  guarantee enforced up front
+- duplicate-id validation can remain best-effort rather than globally locked
+- a reserved id is only meaningful relative to active in-memory leaves and
+  current durable graph contents
 
-## Step 2: Make Turn Own Graph-Based Execution State
+## Step 2: Make Turn A Server-Owned Execution Object
 
-Move graph-facing execution responsibilities from `Agent` into `Turn`.
+Refactor `Turn` so it owns one ask execution record, but keep it internal.
 
 Target responsibility for `Turn`:
 
 - hold `messageGraph`
-- hold `parentId`
-- hold `pendingMessageId`
-- build the initial branch from `parentId`
-- append the user prompt
-- append intermediate assistant/tool messages
-- append the final assistant message using `pendingMessageId`
+- hold starting `parentId`
+- hold `pendingLeafId`
+- run model/tool execution for exactly one ask
+- append the prompt, intermediate messages, and final assistant message
+- write the final assistant message using `pendingLeafId`
+
+Non-goal:
+
+- do not make `Turn` the public conceptual model
 
 Likely API direction:
 
-- `Turn` constructor/factory accepts `messageGraph`, config, `parentId`, and
-  `pendingMessageId`
-- `Turn.ask(prompt, onMessages)` remains the execution entrypoint
+- `Turn.create({ messageGraph, config, parentId, pendingLeafId, ... })`
+- `turn.run(prompt, onMessages?)`
+- `turn.cancel()`
 
 Why this step:
 
-- it turns `Turn` into the execution record that a server can expose
-- it removes the current mismatch where `Agent` owns execution state and `Turn`
-  only owns the model loop
+- server-owned execution still needs a concrete object
+- today that responsibility is split awkwardly between `Agent` and `Turn`
 
 Things to watch:
 
-- preserve current behavior for init prompt insertion
-- keep the current message append order and metadata behavior
-- decide whether `Turn` stores accumulated appended messages for inspection, or
-  reads from `MessageGraph` on demand
+- preserve init prompt behavior
+- preserve current append order and metadata semantics
+- decide explicitly which state must remain inspectable while the turn is still
+  active in memory
 
-## Step 3: Introduce An In-Process TurnManager
+## Step 3: Introduce An In-Process Leaf Manager
 
-Add an in-process server-side object, tentatively `TurnManager`, that owns
-active `Turn` instances in memory.
+Add an in-process server-side controller, tentatively `TurnManager`, though
+`LeafManager` may be a better eventual name because the public API is leaf-first.
 
-Core model:
+Core responsibilities:
 
-- a `Turn` is uniquely identified by its `pendingMessageId`
-- that id does not exist in `MessageGraph` while the turn is in progress
-- when the turn completes, that same id becomes the final assistant message id
-- `TurnManager` removes the turn from memory as soon as `turn.ask(...)` settles
+- allocate pending leaf ids
+- create and own active in-memory execution objects
+- index active pending leaves by `leafId`
+- cancel active pending leaves
+- remove settled leaves from memory
 
-Initial responsibilities:
+Required lifecycle:
 
-- create a new turn from a `parentId` and prompt
-- allocate a `pendingMessageId`
-- create a `ServerTurn`-like instance and store it in a
-  `Map<pendingMessageId, Turn>`
-- expose lookup by `pendingMessageId`
-- expose cancellation by `pendingMessageId`
-- remove the turn from the map when `ask()` finishes or fails
+- `createLeaf(parentId, prompt)` allocates a pending leaf id and starts
+  execution immediately
+- while active, that leaf exists only in memory
+- on success, that same id becomes durable in `MessageGraph`
+- on cancellation or failure before durable completion, the pending leaf
+  disappears from the live leaf set
 
 Suggested initial API:
 
-- `createTurn(parentId) -> Turn`
-- `getTurn(pendingMessageId)`
-- `cancelTurn(pendingMessageId)`
-- `activeTurns()`
+- `createLeaf(parentId, prompt) -> { leafId }`
+- `getActiveLeaf(leafId)`
+- `cancelLeaf(leafId)`
+- `activeLeaves()`
 
 Why this step:
 
-- it creates the server boundary before transport exists
-- it locks in the single-id model for in-progress and completed continuation
-  points
-- it gives later HTTP endpoints a concrete controller-shaped object to target
+- it creates the actual server ownership boundary described in the spec
+- it removes the public empty-turn concept from the architecture
 
 Things to watch:
 
-- there should be no externally visible "empty turn" state before messages
-  begin flowing
-- pending ids should be allocated against both active turns and durable graph
-  messages as best as practical
-- `TurnManager` should not try to persist completed turns; durable state remains
-  the message graph
+- there should be no externally visible "created but not started" state
+- the manager must not persist completed turns separately from the graph
+- name choice matters: if `TurnManager` remains the class name, keep the docs
+  clear that "turn" is internal only
 
-## Step 4: Define Symmetric ClientTurn / ServerTurn APIs
+## Step 4: Define The Server-Side Leaf View
 
-Introduce a shared turn-shaped API that can be implemented both in-process and
-over HTTP.
+Add the query layer that merges durable graph leaves with active pending leaves
+into one live leaf model.
 
-Desired shape:
+This is the main read model the server spec expects.
 
-- `ServerTurn` is the real execution object owned by `TurnManager`
-- `ClientTurn` is a transport proxy that mirrors the same surface
-- both are identified by `pendingMessageId`
+Required behavior:
 
-Candidate shared API:
+- list durable leaves from `MessageGraph`
+- overlay active pending leaves from the in-memory manager
+- expose each continuation point by exactly one id
+- avoid double-counting during completion races
 
-- `pendingMessageId`
+Preferred payload shape for this layer:
+
+- `leafId`
 - `parentId`
-- `messages()`
-- `ask(prompt, onMessages?)`
-- `cancel()`
 
-HTTP mapping direction:
+Not preferred at this layer unless needed internally:
 
-- `ClientTurn.create(parentId, prompt)` calls something like `POST /leaves`
-- the server controller creates a turn via `TurnManager`, starts the ask
-  immediately, and returns the `pendingMessageId`
-- other turn methods route using that same id
+- explicit `state: 'pending' | 'complete'`
+- full `messages`
+- extra metadata that duplicates what the graph/manager already imply
 
-Why this step:
+Why here:
 
-- it lets the client stay unaware of whether it is talking to a local object or
-  a remote process
-- it makes the later HTTP transport an implementation detail rather than an API
-  redesign
+- the spec’s public model is "the global leaf set", not "lookup turns"
 
 Things to watch:
 
-- the HTTP layer should stay thin; `TurnManager` remains the real owner of
-  server-side behavior
-- `messages()` for a pending turn must include the durable branch prefix plus
-  the in-memory suffix accumulated so far
+- completion races need a clear rule: memory view disappears as durable graph
+  view appears under the same id
+- keep the leaf list minimal and structural
 
-## Step 5: Make Agent Use TurnManager And Pending IDs Directly
+## Step 5: Add Graph Message Resolution Across Memory And Disk
 
-Refactor `Agent` toward a detached-head client of the turn manager model.
+Implement the mixed message view as a graph-level operation.
+
+Required behavior from the spec:
+
+- for a durable complete leaf, messages come from `MessageGraph`
+- for an active pending leaf, messages are:
+  durable branch prefix + in-memory suffix accumulated so far
+- the same target id must work in both states
+
+Likely API direction:
+
+- `messageGraph.messages({ toMessageId, afterMessageId? })`
+- reject `afterMessageId` if it is not on the path to `toMessageId`
+- optionally add `leaf.messages({ afterMessageId })` later as thin convenience
+  sugar over the graph call
+
+Why this step:
+
+- it exercises the single-id model directly
+- it gives the client a stable way to follow a branch even as a leaf moves from
+  pending to durable
+- it avoids baking "messages belong to leaves" too deeply into the core model
+
+Things to watch:
+
+- the mixed view should not require the caller to know whether the target id is
+  pending or complete
+- the branch is complete once the stream emits the message whose id equals the
+  requested `toMessageId`
+- leaf-level message methods should remain convenience wrappers, not the core
+  primitive
+
+## Step 6: Refactor Agent Into A Leaf-Following Client
+
+Refactor `Agent` so it behaves like a detached-head client over leaf ids rather
+than the owner of execution.
 
 New `Agent` role:
 
 - hold detached-head state in `_tipId`
-- request creation of a new pending leaf from the current tip and prompt
-- immediately advance `_tipId` to the new turn's `pendingMessageId`
-- watch that leaf's messages through the turn interface
-- treat cancellation as targeting the current pending id, not a queue-owned task
+- request `createLeaf(parentId, prompt)` from the manager/server
+- immediately advance `_tipId` to the new pending leaf id
+- resolve `messages()` through the graph message view targeted at the current
+  tip id
+- target cancellation by leaf id rather than by queue-owned current task
 
 Compatibility goal:
 
-- `Agent.ask()` can still return final assistant text for now
-- current `useAgent()` behavior should continue to work
+- `Agent.ask()` may still return final assistant text for now
+- existing UI hooks such as `useAgent()` should continue to function during the
+  transition
 
 Why this step:
 
-- it aligns `Agent` with the "detached head" role described in
-  `docs/CORE_CONCEPTS.md`
-- it moves routing and cancellation semantics toward the eventual server design
+- it aligns the implementation with the server spec and the detached-head model
 
 Things to watch:
 
-- queued asks on one `Agent` still need a clear policy
-- `TaskQueue` may remain temporarily, but it should become an `Agent` concern,
-  not the owner of turn cancellation semantics
-- once `_tipId` points at a pending id, `messages()` must still resolve through
-  the active turn until completion
+- if `TaskQueue` remains temporarily, it should only express local sequencing
+  policy for one agent, not server truth
+- once `_tipId` points at a pending leaf, `messages()` must still work
 
-## Step 6: Add Continuation-Point Queries Across Memory And Disk
+## Step 7: Introduce Stream-First Server Endpoints
 
-Add a server-level query that lists all potential continuation points, whether
-they are still pending in memory or already durable in the message graph.
+Once the ownership and query model is correct in-process, add the actual
+stream-first server API from the spec.
 
-Likely direction:
+Target endpoints:
 
-- `MessageGraph` computes durable leaves
-- `TurnManager` exposes active turns keyed by `pendingMessageId`
-- a query layer merges the two into one continuation-point list
+- `POST /leaves`
+- `DELETE /leaves/:leafId`
+- `GET /leaves`
+- `GET /leaves/:leafId/messages`
+- optionally later a more general `GET /messages?toMessageId=...&afterMessageId=...`
 
-Candidate response shape:
+Expected event model:
 
-- `messageId`
-- `state: 'pending' | 'complete'`
-- `parentId`
-- `messages`
+- leaf stream replays existing leaves as `added`
+- then emits `added` / `removed` as the live leaf set changes
+- message stream replays existing branch messages as `added`
+- then emits new `added` events for in-progress leaves as messages arrive
+
+Why this step is later:
+
+- transport should sit on top of the correct ownership model
+- otherwise the HTTP surface will harden the wrong abstractions
+
+Things to watch:
+
+- keep the HTTP layer thin; manager/query objects remain the real owner of
+  behavior
+- do not split initial read and realtime subscription unless experience later
+  proves the stream-first design inadequate
+
+## Step 8: Add Pending Leaf Dependency Semantics
+
+Implement the pending-on-pending rules from the spec once the base leaf model
+exists.
+
+Required behavior:
+
+- a pending leaf may use another pending leaf as its `parentId`
+- child pending leaves are visible in the live leaf set
+- a child pending leaf must not begin execution until its parent completes
+  successfully
+- deleting a pending leaf invalidates queued descendants that depend on it
+- invalidated descendants disappear from the live leaf set and never become
+  durable under those ids
+
+Why this is separate:
+
+- it adds dependency scheduling and invalidation semantics beyond the base
+  single-leaf flow
+
+Things to watch:
+
+- this is the most complex part of the spec and should land after the simpler
+  single-pending-leaf path is stable
+- descendant invalidation needs a clear tree walk over active pending leaves
+
+## Step 9: Follow Behavior And `afterMessageId`
+
+Add the efficiency and UX pieces needed for clean branch following.
+
+Likely additions:
+
+- support `afterMessageId` for graph message reads/streams
+- keep any leaf-level `messages(...)` as convenience sugar over the graph call
+- let clients follow direct child leaves without replaying the full branch
+- codify focused-leaf fallback when a focused leaf is removed
 
 Why here:
 
-- this is one of the main motivations for the architecture
-- it exercises the single-id model directly
+- these behaviors depend on the leaf stream and mixed message view already
+  existing
 
-Things to watch:
+## Open Questions And Challenges To The Spec
 
-- avoid double-counting if a turn finishes during listing
-- `messages` for pending turns come from the active turn's mixed
-  durable-prefix/in-memory-suffix view
-- `messages` for complete turns come from `MessageGraph`
+The server spec is mostly coherent, but a few points deserve explicit scrutiny
+before the implementation hardens around them.
 
-## Step 7: Revisit Streaming / Subscription API
+### 1. Should queued child pending leaves appear before they have any in-memory messages?
 
-Only after the ownership model is stable, reconsider whether `onMessages`
-callbacks should become a stream or `AsyncIterable`.
+The spec says:
 
-Current recommendation:
+- pending descendants are allowed
+- they appear in the live leaf set
+- they do not begin execution until the parent completes successfully
 
-- keep callback-based delivery during the refactor
-- treat streaming shape as a transport/interface decision, not a prerequisite
-  for the server architecture
+That is workable, but it means a pending leaf can exist whose `/messages` view
+contains only inherited durable prefix and no leaf-owned suffix yet. That is
+not wrong, but it is worth treating as an intentional state rather than an
+accident.
 
-Questions to revisit later:
+This is another reason to treat graph-level message resolution as the primary
+abstraction and any per-leaf `messages(...)` API as convenience sugar.
 
-- should a `Turn` expose a subscription API directly?
-- should server clients consume events as callbacks, iterables, or a push stream?
-- what is the cleanest mapping to HTTP/SSE/WebSocket transport?
+### 2. Is "no explicit loaded boundary" still acceptable for all clients?
 
-## Open Questions
+The spec intentionally omits snapshot/sync-complete events. That is fine for an
+incremental UI, but if the UI later needs a hard "initial replay complete"
+signal, retrofitting it will be a protocol change. This is probably acceptable
+for now, but it should remain a conscious tradeoff.
 
-- where should init prompt insertion ultimately live: `TurnManager`, `Turn`, or
-  a higher-level conversation/head abstraction?
-- what sequencing guarantees should one `Agent` provide if multiple `ask()`
-  calls are issued quickly?
-- do we want one private in-process manager per `Agent` during the transition,
-  or should multiple agents share one process-local manager sooner?
+### 3. Is `TurnManager` still the right name?
+
+The spec calls the in-process controller tentatively `TurnManager`, but the
+public model is leaf-first. Keeping the old name is acceptable if the code
+comments are disciplined, but `LeafManager` or `LeafServer` may better match
+the architecture.
 
 ## Recommended Execution Order
 
-1. implement Step 1
-2. implement Step 2
-3. implement Step 3
-4. implement Step 4
-5. implement Step 5
-6. implement Step 6
-7. stop and re-evaluate streaming
-8. revisit Step 7 only if needed
+1. finish and verify pending final-message id support
+2. make `Turn` a server-owned internal execution object
+3. introduce the in-process leaf manager
+4. add the merged live leaf-set query
+5. add graph-level mixed message resolution
+6. refactor `Agent` to consume leaf ids instead of owning execution
+7. add the stream-first HTTP API
+8. implement pending-leaf dependency and invalidation semantics
+9. add `afterMessageId` and focus-follow behavior
+10. stop and re-evaluate naming and protocol gaps before polishing further

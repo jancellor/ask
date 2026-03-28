@@ -24,6 +24,14 @@ This gives one identity model:
 Internally, the server will still have turn-like objects to manage execution,
 but the external API should be graph-centric and leaf-centric.
 
+There are two related but distinct concerns:
+
+- leaf tracking and control
+- message retrieval along graph paths
+
+The current direction is to treat message retrieval as a graph-level primitive,
+while still allowing leaf-oriented convenience APIs on top of it.
+
 ## In-Memory Server Model
 
 The in-process server-side controller is tentatively `TurnManager`.
@@ -174,6 +182,37 @@ Notes:
 - a complete leaf may simply finish replaying existing messages and then remain
   idle or close, depending on transport choices made later
 
+### Possible Generalization: `GET /messages`
+
+The leaf-specific message endpoint is useful, but the underlying operation is
+more naturally graph-based than leaf-based.
+
+Likely underlying shape:
+
+```json
+{
+  "toMessageId": "leaf-or-message-id",
+  "afterMessageId": "optional-known-boundary"
+}
+```
+
+Semantics:
+
+- stream the path ending at `toMessageId`
+- if `afterMessageId` is provided, only emit messages strictly after that id
+- reject the request if `afterMessageId` is not on the path to `toMessageId`
+
+This is a better conceptual primitive because it also supports:
+
+- following a leaf efficiently
+- starting from non-leaf message ids later if needed
+- other graph-oriented queries that are not inherently leaf-specific
+
+Current conclusion:
+
+- keep `GET /leaves/:leafId/messages` as a convenient public shape for now
+- treat it as sugar over a more general graph-level message retrieval model
+
 ## Streaming Model
 
 The current preferred design is stream-first rather than split read + subscribe.
@@ -214,7 +253,7 @@ Intended behavior:
 - when following that extension, the client should switch focus to the new
   `leafId`
 - to avoid replaying the entire shared prefix, the client should be able to call
-  `leaf.messages({ afterMessageId })`
+  `messages({ toMessageId: leafId, afterMessageId })` or equivalent leaf sugar
 - `afterMessageId` should be the last processed message id currently shown in
   the main view, not merely the last one received on the wire
 
@@ -269,7 +308,8 @@ way without introducing special UI-only server semantics.
 The intended UI model is:
 
 - one global leaf list, updated from `GET /leaves`
-- one focused branch view, updated from `GET /leaves/:leafId/messages`
+- one focused branch view, updated from graph message streaming targeted at the
+  selected leaf id
 
 Branching behavior:
 
@@ -284,6 +324,53 @@ Branching behavior:
 
 This makes the main pane follow one chosen branch while the side panel exposes
 all possible continuation points.
+
+## TypeScript Shape
+
+In TypeScript, the current minimal model is best described with separate root
+objects for leaves and graph messages.
+
+Sketch:
+
+```ts
+type MessageId = string;
+
+type LeafInfo = {
+  leafId: MessageId;
+  parentId: MessageId | null;
+};
+
+interface Leaves {
+  create(input: {
+    parentId: MessageId | null;
+    prompt: string;
+  }): Promise<LeafInfo>;
+
+  delete(leafId: MessageId): Promise<void>;
+
+  stream(): AsyncIterable<
+    { type: 'added'; leaf: LeafInfo } | { type: 'removed'; leafId: MessageId }
+  >;
+}
+
+interface MessageGraphView {
+  messages(input: {
+    toMessageId: MessageId;
+    afterMessageId?: MessageId;
+  }): AsyncIterable<{ type: 'added'; messages: AskMessage[] }>;
+}
+
+interface AskServer {
+  leaves: Leaves;
+  messageGraph: MessageGraphView;
+}
+```
+
+Leaf-level `messages(...)` can still exist as convenience sugar, but the
+intended underlying primitive is graph-level:
+
+- `leaf.messages({ afterMessageId })`
+- equivalent to `messageGraph.messages({ toMessageId: leaf.leafId, afterMessageId })`
 
 ## Minimal Payload Philosophy
 

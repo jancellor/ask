@@ -3,6 +3,8 @@ import type { ModelMessage } from 'ai';
 import { partition } from 'lodash-es';
 import { type AskMessage, isRewindBoundary } from './message-utils.js';
 import { MessageLog } from './message-log.js';
+import { Leaf, type LeafEvent } from './leaf.js';
+import { MulticastAsyncStream } from '../streams/multicast-async-stream.js';
 
 export type AppendMessageOptions = {
   lastId?: string;
@@ -21,9 +23,12 @@ export type MessageNode = {
 // as the shared log grows. When this becomes a problem, messageLog.read()
 // should accept a suffix limit (e.g. last N lines) instead of reading everything.
 export class MessageGraph {
+  private leafEventStream = new MulticastAsyncStream<LeafEvent>();
+
   private constructor(
     private _lastId: string | null,
     private messagesById: Map<string, AskMessage>,
+    private leafIds: Set<string>,
     private messageLog: MessageLog,
   ) {}
 
@@ -42,7 +47,14 @@ export class MessageGraph {
       lastId = id;
     }
 
-    return new MessageGraph(lastId, messagesById, messageLog);
+    const leafIds = new Set(messagesById.keys());
+    for (const message of messagesById.values()) {
+      if (message._meta.parentId !== null) {
+        leafIds.delete(message._meta.parentId);
+      }
+    }
+
+    return new MessageGraph(lastId, messagesById, leafIds, messageLog);
   }
 
   has(id: string): boolean {
@@ -53,7 +65,7 @@ export class MessageGraph {
     return this._lastId;
   }
 
-  pendingId(): string {
+  mintId(): string {
     return randomUUID();
   }
 
@@ -63,12 +75,21 @@ export class MessageGraph {
     options: AppendMessageOptions,
   ): Promise<AskMessage[]> {
     if (messages.length === 0) return []; // prevents unnecessary file creation
+    const removedLeafId =
+      parentId !== null && this.leafIds.has(parentId) ? parentId : null;
     const appended = this.withMeta(parentId, messages, options);
     await this.messageLog.append(appended);
     for (const message of appended) {
       this.messagesById.set(message._meta.id, message);
       this._lastId = message._meta.id;
     }
+    if (removedLeafId !== null) {
+      this.leafIds.delete(removedLeafId);
+      this.leafEventStream.push({ removed: new Leaf(removedLeafId) });
+    }
+    const addedLeafId = appended.at(-1)!._meta.id;
+    this.leafIds.add(addedLeafId);
+    this.leafEventStream.push({ added: new Leaf(addedLeafId) });
     return appended;
   }
 
@@ -101,9 +122,7 @@ export class MessageGraph {
     return branch.reverse();
   }
 
-  tree(id: string | null): MessageNode | null {
-    if (id === null) return null;
-
+  forest(): MessageNode[] {
     const sortedInsert = (nodes: MessageNode[], node: MessageNode) => {
       let i = nodes.findIndex((n) => n.age < node.age);
       if (i === -1) i = nodes.length;
@@ -125,7 +144,23 @@ export class MessageGraph {
       sortedInsert(nodes, { age, message, children });
     }
 
-    return nodes.find((node) => containsMessageId(node, id)) ?? null;
+    return nodes;
+  }
+
+  tree(id: string | null): MessageNode | null {
+    if (id === null) return null;
+    const nodes = this.forest();
+    return nodes.find((node) => this.containsMessageId(node, id)) ?? null;
+  }
+
+  leaves(): Leaf[] {
+    return Array.from(this.leafIds, (id) => new Leaf(id));
+  }
+
+  leafEvents(): AsyncIterable<LeafEvent> {
+    return this.leafEventStream.stream(
+      this.leaves().map((leaf) => ({ added: leaf })),
+    );
   }
 
   private withMeta(
@@ -138,7 +173,7 @@ export class MessageGraph {
 
     for (const [index, message] of messages.entries()) {
       const isLast = index === messages.length - 1;
-      const id = isLast && options.lastId ? options.lastId : this.pendingId();
+      const id = isLast && options.lastId ? options.lastId : this.mintId();
       appended.push({
         ...message,
         _meta: {
@@ -153,9 +188,9 @@ export class MessageGraph {
 
     return appended;
   }
-}
 
-function containsMessageId(node: MessageNode, id: string): boolean {
-  if (node.message._meta.id === id) return true;
-  return node.children.some((child) => containsMessageId(child, id));
+  private containsMessageId(node: MessageNode, id: string): boolean {
+    if (node.message._meta.id === id) return true;
+    return node.children.some((child) => this.containsMessageId(child, id));
+  }
 }

@@ -6,7 +6,8 @@ import {
 import { AskMessage } from './message-utils.js';
 import { type MessageNode, MessageGraph } from './message-graph.js';
 import { TaskQueue } from './task-queue.js';
-import { Turn } from './turn.js';
+import { type Turn } from './turn.js';
+import { Graph } from './graph.js';
 
 export type { AskMessage, AskMessageMeta } from './message-utils.js';
 export type { MessageNode } from './message-graph.js';
@@ -23,13 +24,13 @@ export class Agent {
 
   private constructor(
     private _tipId: string | null,
-    private messageGraph: MessageGraph,
+    private graph: Graph,
     private config: ResolvedConfig,
   ) {}
 
   static async create(options: AgentOptions): Promise<Agent> {
-    const [messageGraph, config] = await Promise.all([
-      MessageGraph.create(),
+    const [graph, config] = await Promise.all([
+      Graph.create(),
       new ConfigReader().resolve(options),
     ]);
 
@@ -39,17 +40,17 @@ export class Agent {
       const resumeId =
         typeof options.resume === 'string'
           ? options.resume
-          : messageGraph.lastId();
+          : graph.messageGraph.lastId();
 
       if (resumeId !== null) {
-        if (!messageGraph.has(resumeId)) {
+        if (!graph.messageGraph.has(resumeId)) {
           throw new Error(`unknown message ID: ${resumeId}`);
         }
         tipId = resumeId;
       }
     }
 
-    return new Agent(tipId, messageGraph, config);
+    return new Agent(tipId, graph, config);
   }
 
   get tipId(): string | null {
@@ -57,11 +58,15 @@ export class Agent {
   }
 
   messages(): AskMessage[] {
-    return this.messageGraph.branch(this._tipId);
+    return this.graph.messageGraph.branch(this._tipId);
+  }
+
+  branch(): AsyncIterable<AskMessage> {
+    return this.graph.branch(this._tipId);
   }
 
   messageTree(): MessageNode | null {
-    return this.messageGraph.tree(this._tipId);
+    return this.graph.messageGraph.tree(this._tipId);
   }
 
   get model(): string {
@@ -81,15 +86,26 @@ export class Agent {
     onMessages?: (messages: AskMessage[]) => void | Promise<void>,
   ): Promise<string> {
     return this.queue.submit(async (signal) => {
-      const turn = Turn.create(this.config, this.messageGraph, this._tipId);
-      signal.addEventListener('abort', () => turn.cancel(), { once: true });
-
+      let turn: Turn;
       const turnOnMessages = async (messages: AskMessage[]) => {
         this._tipId = turn.parentId;
         await onMessages?.(messages);
       };
 
-      const result = await turn.ask(prompt, turnOnMessages);
+      turn = this.graph.createTurn(
+        this.config,
+        this.graph.messageGraph,
+        this._tipId,
+        prompt,
+        turnOnMessages,
+      );
+      if (signal.aborted) {
+        turn.cancel();
+      } else {
+        signal.addEventListener('abort', () => turn.cancel(), { once: true });
+      }
+
+      const result = await turn.done;
       this._tipId = turn.parentId;
       return result;
     });
@@ -112,7 +128,7 @@ export class Agent {
 
   async rewind(messageId: string | null): Promise<void> {
     await this.queue.submit(async () => {
-      const resolved = this.messageGraph.rewindBoundary(messageId);
+      const resolved = this.graph.messageGraph.rewindBoundary(messageId);
       // null means we walked past the loaded suffix — don't rewind.
       // Use clear() to reset to an empty conversation.
       if (resolved !== null) this._tipId = resolved;

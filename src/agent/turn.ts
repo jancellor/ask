@@ -18,19 +18,28 @@ export class Turn {
   private systemPrompt = new SystemPrompt().build();
   private tools = new Tools();
   private controller = new AbortController();
+  readonly done: Promise<string>;
 
   private constructor(
+    private turnId: string,
     private config: ResolvedConfig,
     private messageGraph: MessageGraph,
     private _parentId: string | null,
-  ) {}
+    prompt: string,
+    onMessages?: (messages: AskMessage[]) => void | Promise<void>,
+  ) {
+    this.done = this.run(prompt, onMessages);
+  }
 
   static create(
+    turnId: string,
     config: ResolvedConfig,
     messageGraph: MessageGraph,
     parentId: string | null,
+    prompt: string,
+    onMessages?: (messages: AskMessage[]) => void | Promise<void>,
   ): Turn {
-    return new Turn(config, messageGraph, parentId);
+    return new Turn(turnId, config, messageGraph, parentId, prompt, onMessages);
   }
 
   get parentId(): string | null {
@@ -41,7 +50,7 @@ export class Turn {
     return this.messageGraph.branch(this._parentId);
   }
 
-  async ask(
+  private async run(
     prompt: string,
     onMessages?: (messages: AskMessage[]) => void | Promise<void>,
   ): Promise<string> {
@@ -58,7 +67,7 @@ export class Turn {
     };
 
     await this.addInitialMessages(push);
-    await push([{ role: 'user', content: prompt }], {});
+    await push([{ role: 'user', content: prompt }], { lastId: this.turnId });
 
     try {
       while (true) {

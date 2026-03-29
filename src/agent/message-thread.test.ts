@@ -156,6 +156,6 @@ describe('pendingId', () => {
 
     const graph = await MessageGraph.create();
 
-    expect(graph.pendingId()).not.toBe(graph.pendingId());
+    expect(graph.mintId()).not.toBe(graph.mintId());
   });
 });

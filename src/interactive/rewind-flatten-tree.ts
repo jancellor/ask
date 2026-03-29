@@ -1,4 +1,5 @@
-import { type Agent, AskMessage, type MessageNode } from '../agent/agent.js';
+import type { MessageNode } from '../agent/agent.js';
+import { type AskMessage } from '../agent/agent.js';
 import { extractText } from '../agent/message-utils.js';
 
 export const REWIND_FILTERS = ['user', 'user-agent'] as const;
@@ -16,9 +17,12 @@ export type RewindRow = {
 
 // consider having "b" toggle whether branches are shown
 // should be easy by making this a type of filter
-export function flattenTree(agent: Agent, filter: RewindFilter): RewindRow[] {
-  const root = agent.messageTree();
-  const tipId = agent.tipId;
+export function flattenTree(
+  messageTree: () => MessageNode | null,
+  tipId: string | null,
+  filter: RewindFilter,
+): RewindRow[] {
+  const root = messageTree();
   if (!root) return [];
   return renderNode(root, tipId, filter, 0, 0);
 }

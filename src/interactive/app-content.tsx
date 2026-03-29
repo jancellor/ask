@@ -16,11 +16,11 @@ export function AppContent({
   onRequestShutdown,
 }: AppContentProps) {
   const {
-    agent,
     messages,
-    model,
-    provider,
-    variant,
+    error,
+    config,
+    tipId,
+    messageTree,
     pendingOperation,
     ask,
     cancel,
@@ -38,7 +38,9 @@ export function AppContent({
   const handleRewindSelect = (selection: RewindSelection) => {
     unawaited(
       (async () => {
-        await rewind(selection.messageId);
+        await rewind(selection.messageId, () => {
+          console.log('[Rewind]\n');
+        });
         setPrefillText(selection.prefillText);
         setRewindOpen(false);
       })(),
@@ -54,14 +56,16 @@ export function AppContent({
     <Box flexDirection="column">
       <Messages
         messages={messages}
-        model={model}
-        provider={provider}
-        variant={variant}
+        error={error}
+        model={config.model}
+        provider={config.provider}
+        variant={config.variant}
         pendingOperation={pendingOperation}
       />
       {rewindOpen ? (
         <Rewind
-          agent={agent}
+          tipId={tipId}
+          messageTree={messageTree}
           onClose={handleCloseRewind}
           onSelect={handleRewindSelect}
         />

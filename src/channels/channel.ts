@@ -1,7 +1,10 @@
-export class AsyncStream<T> implements AsyncIterable<T>, AsyncIterator<T> {
+export class Channel<T> implements AsyncIterable<T>, AsyncIterator<T> {
   private values: T[] = [];
   private resolveNext: ((result: IteratorResult<T>) => void) | null = null;
-  private finished = false;
+  private rejectNext: ((error: unknown) => void) | null = null;
+  private closed = false;
+  private failure: unknown = undefined;
+  private hasFailed = false;
 
   constructor(
     initial: Iterable<T> = [],
@@ -22,40 +25,59 @@ export class AsyncStream<T> implements AsyncIterable<T>, AsyncIterator<T> {
       return Promise.resolve({ value, done: false });
     }
 
-    if (this.finished) {
+    if (this.hasFailed) {
+      return Promise.reject(this.failure);
+    }
+
+    if (this.closed) {
       return Promise.resolve({ value: undefined, done: true });
     }
 
-    return new Promise<IteratorResult<T>>((resolve) => {
+    return new Promise<IteratorResult<T>>((resolve, reject) => {
       this.resolveNext = resolve;
+      this.rejectNext = reject;
     });
   }
 
   return(): Promise<IteratorResult<T>> {
-    this.finish();
+    this.close();
     return Promise.resolve({ value: undefined, done: true });
   }
 
   push(value: T): void {
-    if (this.finished) return;
+    if (this.closed) return;
 
     if (this.resolveNext) {
       this.resolveNext({ value, done: false });
       this.resolveNext = null;
+      this.rejectNext = null;
       return;
     }
 
     this.values.push(value);
   }
 
-  private finish(): void {
-    if (this.finished) return;
-    this.finished = true;
+  fail(error: unknown): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.hasFailed = true;
+    this.failure = error;
     this.onClose();
+    if (this.rejectNext) {
+      this.rejectNext(error);
+      this.resolveNext = null;
+      this.rejectNext = null;
+    }
+  }
 
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.onClose();
     if (this.resolveNext) {
       this.resolveNext({ value: undefined, done: true });
       this.resolveNext = null;
+      this.rejectNext = null;
     }
   }
 }

@@ -1,14 +1,17 @@
 import React from 'react';
-import { Box, Static } from 'ink';
+import { Box, Static, Text } from 'ink';
 import type { AskMessage } from '../agent/agent.js';
+import { isRewindBoundary } from '../agent/message-utils.js';
 import { AssistantPartMessage } from './assistant-part-message.js';
 import { SpinnerMessage } from './spinner-message.js';
 import { ToolPartMessage } from './tool-part-message.js';
 import { UserPartMessage } from './user-part-message.js';
 import { Welcome } from './welcome.js';
+import { colors } from '../render/render.js';
 
 interface MessagesProps {
   messages: AskMessage[];
+  error: unknown | null;
   model: string;
   provider: string;
   variant: string | null;
@@ -17,6 +20,7 @@ interface MessagesProps {
 
 export function Messages({
   messages: rawMessages,
+  error,
   model,
   provider,
   variant,
@@ -35,12 +39,13 @@ export function Messages({
     })),
   );
 
-  const splitIdx = parts.findIndex(
-    (p) => p.type === 'tool-call' && !toolResults.has(p.toolCallId),
-  );
-
-  const staticParts = splitIdx === -1 ? parts : parts.slice(0, splitIdx);
-  const activeParts = splitIdx === -1 ? [] : parts.slice(splitIdx);
+  const lastBoundaryIdx = messages.findLastIndex((m) => isRewindBoundary(m));
+  const splitIdx =
+    lastBoundaryIdx === -1
+      ? 0
+      : parts.findLastIndex((p) => p.i === lastBoundaryIdx) + 1;
+  const staticParts = parts.slice(0, splitIdx);
+  const activeParts = parts.slice(splitIdx);
 
   type MessagePart = (typeof parts)[number];
   type WelcomeItem = { id: 'welcome'; type: 'welcome' };
@@ -91,9 +96,28 @@ export function Messages({
         }}
       </Static>
       {activeParts.map(renderPart)}
+      {error !== null && <ErrorMessage error={error} />}
       {pendingOperation && <SpinnerMessage />}
     </Box>
   );
+}
+
+function ErrorMessage({ error }: { error: unknown }) {
+  return (
+    <Box flexDirection="column">
+      <Text color={colors.error}>{formatError(error)}</Text>
+      <Text> </Text>
+    </Box>
+  );
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.name === 'AbortError'
+      ? '[Canceled]'
+      : `[Error] ${error.message}`;
+  }
+  return `[Error] ${String(error)}`;
 }
 
 type ContentPart =

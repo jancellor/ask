@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { type Agent } from '../agent/agent.js';
+import type { MessageNode } from '../agent/message-graph.js';
 import { colors } from '../render/render.js';
 import {
   REWIND_FILTERS,
@@ -14,7 +14,8 @@ export type RewindSelection = {
 };
 
 type RewindProps = {
-  agent: Agent;
+  tipId: string | null;
+  messageTree: () => MessageNode | null;
   onClose: () => void;
   onSelect: (selection: RewindSelection) => void;
 };
@@ -37,9 +38,9 @@ function truncateToWidth(text: string, maxWidth: number): string {
   return text.slice(0, maxWidth - 3) + '...';
 }
 
-export function Rewind({ agent, onClose, onSelect }: RewindProps) {
+export function Rewind({ tipId, messageTree, onClose, onSelect }: RewindProps) {
   const [filter, setFilter] = useState<RewindFilter>('user');
-  const rows = flattenTree(agent, filter);
+  const rows = flattenTree(messageTree, tipId, filter);
   const [terminalSize, setTerminalSize] = useState<TerminalSize>(() =>
     getTerminalSize(),
   );

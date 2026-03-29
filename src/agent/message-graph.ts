@@ -1,15 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import type { ModelMessage } from 'ai';
 import { partition } from 'lodash-es';
 import { type AskMessage, isRewindBoundary } from './message-utils.js';
 import { MessageLog } from './message-log.js';
-import { Leaf, type LeafEvent } from './leaf.js';
-import { MulticastAsyncStream } from '../streams/multicast-async-stream.js';
-
-export type AppendMessageOptions = {
-  lastId?: string;
-  uiHidden?: boolean;
-};
 
 export type MessageNode = {
   age: number;
@@ -22,13 +14,12 @@ export type MessageNode = {
 // Currently we load the entire log into memory on startup, which will degrade
 // as the shared log grows. When this becomes a problem, messageLog.read()
 // should accept a suffix limit (e.g. last N lines) instead of reading everything.
+// But actually we'll probably split into one file per tree in the forest instead.
 export class MessageGraph {
-  private leafEventStream = new MulticastAsyncStream<LeafEvent>();
-
-  private constructor(
+  constructor(
     private _lastId: string | null,
+    private _leafIds: Set<string>,
     private messagesById: Map<string, AskMessage>,
-    private leafIds: Set<string>,
     private messageLog: MessageLog,
   ) {}
 
@@ -54,43 +45,53 @@ export class MessageGraph {
       }
     }
 
-    return new MessageGraph(lastId, messagesById, leafIds, messageLog);
+    return new MessageGraph(lastId, leafIds, messagesById, messageLog);
+  }
+
+  get lastId(): string | null {
+    return this._lastId;
+  }
+
+  get leafIds(): Set<string> {
+    return new Set(this._leafIds);
   }
 
   has(id: string): boolean {
     return this.messagesById.has(id);
   }
 
-  lastId(): string | null {
-    return this._lastId;
-  }
-
   mintId(): string {
     return randomUUID();
   }
 
-  async append(
-    parentId: string | null,
-    messages: ModelMessage[],
-    options: AppendMessageOptions,
-  ): Promise<AskMessage[]> {
-    if (messages.length === 0) return []; // prevents unnecessary file creation
+  async commit(messages: AskMessage[]): Promise<void> {
+    if (messages.length === 0) return;
+
+    const seen = new Set<string>();
+    for (const message of messages) {
+      const id = message._meta.id;
+      if (seen.has(id) || this.messagesById.has(id)) {
+        throw new Error(`duplicate message ID: ${id}`);
+      }
+      seen.add(id);
+    }
+
     const removedLeafId =
-      parentId !== null && this.leafIds.has(parentId) ? parentId : null;
-    const appended = this.withMeta(parentId, messages, options);
-    await this.messageLog.append(appended);
-    for (const message of appended) {
+      messages[0]!._meta.parentId !== null &&
+      this._leafIds.has(messages[0]!._meta.parentId)
+        ? messages[0]!._meta.parentId
+        : null;
+
+    for (const message of messages) {
       this.messagesById.set(message._meta.id, message);
       this._lastId = message._meta.id;
     }
     if (removedLeafId !== null) {
-      this.leafIds.delete(removedLeafId);
-      this.leafEventStream.push({ removed: new Leaf(removedLeafId) });
+      this._leafIds.delete(removedLeafId);
     }
-    const addedLeafId = appended.at(-1)!._meta.id;
-    this.leafIds.add(addedLeafId);
-    this.leafEventStream.push({ added: new Leaf(addedLeafId) });
-    return appended;
+    const addedLeafId = messages.at(-1)!._meta.id;
+    this._leafIds.add(addedLeafId);
+    await this.messageLog.append(messages);
   }
 
   rewindBoundary(id: string | null): string | null {
@@ -103,22 +104,31 @@ export class MessageGraph {
     return id;
   }
 
-  branch(id: string | null): AskMessage[] {
+  branch(id: string | null, fromId?: string | null): AskMessage[] {
+    if (fromId === undefined) return [];
+
     const branch: AskMessage[] = [];
-    let currentId = id;
     const seen = new Set<string>();
-    while (currentId) {
-      if (seen.has(currentId)) {
+    let foundFromId = fromId === null;
+    while (id) {
+      if (seen.has(id)) {
         // should be enforced already, but inf loop would be horrible
-        throw new Error(`cycle detected in message graph at: ${currentId}`);
+        throw new Error(`cycle detected in message graph at: ${id}`);
       }
-      seen.add(currentId);
-      const message = this.messagesById.get(currentId);
+      seen.add(id);
+      if (id === fromId) {
+        foundFromId = true;
+        break;
+      }
+      const message = this.messagesById.get(id);
       if (!message) break;
       branch.push(message);
-      currentId = message._meta.parentId;
+      id = message._meta.parentId;
     }
 
+    if (!foundFromId) {
+      throw new Error(`message ID ${fromId} is not on the requested branch`);
+    }
     return branch.reverse();
   }
 
@@ -151,42 +161,6 @@ export class MessageGraph {
     if (id === null) return null;
     const nodes = this.forest();
     return nodes.find((node) => this.containsMessageId(node, id)) ?? null;
-  }
-
-  leaves(): Leaf[] {
-    return Array.from(this.leafIds, (id) => new Leaf(id));
-  }
-
-  leafEvents(): AsyncIterable<LeafEvent> {
-    return this.leafEventStream.stream(
-      this.leaves().map((leaf) => ({ added: leaf })),
-    );
-  }
-
-  private withMeta(
-    parentId: string | null,
-    messages: ModelMessage[],
-    options: AppendMessageOptions,
-  ): AskMessage[] {
-    const timestamp = new Date().toISOString();
-    const appended: AskMessage[] = [];
-
-    for (const [index, message] of messages.entries()) {
-      const isLast = index === messages.length - 1;
-      const id = isLast && options.lastId ? options.lastId : this.mintId();
-      appended.push({
-        ...message,
-        _meta: {
-          id,
-          timestamp,
-          uiHidden: options.uiHidden,
-          parentId,
-        },
-      });
-      parentId = id;
-    }
-
-    return appended;
   }
 
   private containsMessageId(node: MessageNode, id: string): boolean {

@@ -185,7 +185,7 @@ export function Input({
       if (prompt === CLEAR_COMMAND) {
         unawaited(
           onClear(() => {
-            console.log('[New session]\n');
+            console.log('[Clear]\n');
           }),
         );
       } else {

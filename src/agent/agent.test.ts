@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Agent } from './agent.js';
+import { ask } from '../index.js';
 import { ConfigReader, type ResolvedConfig } from './config.js';
 import { generateText } from './generate-text.js';
 import { InitPrompt } from './init-prompt.js';
@@ -32,6 +33,12 @@ function mockConfig() {
 
 const mockedGenerateText = vi.mocked(generateText);
 
+function createAbortError(message = 'aborted'): Error {
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
 describe('Agent.create resume behavior', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -55,7 +62,6 @@ describe('Agent.create resume behavior', () => {
     const agent = await Agent.create({ resume: 'a' });
 
     expect(agent.tipId).toBe('a');
-    expect(agent.messages().map((message) => message._meta.id)).toEqual(['a']);
   });
 
   it('uses the last message when resume is true', async () => {
@@ -100,25 +106,195 @@ describe('Agent.ask', () => {
     });
   });
 
-  it('keeps agent.messages() in sync inside onMessages callbacks', async () => {
+  it('returns a turn whose message stream is the full conversation view', async () => {
     const agent = await Agent.create({});
-    const snapshots: string[][] = [];
+    const turn = await agent.ask('hello');
+    const messages = [];
+    for await (const message of turn.messageEvents()) {
+      messages.push(message);
+    }
 
-    const text = await agent.ask('hello', () => {
-      snapshots.push(
-        agent
-          .messages()
-          .map((message) =>
-            typeof message.content === 'string' ? message.content : '',
-          ),
-      );
-    });
-
-    expect(text).toBe('reply');
-    expect(snapshots).toEqual([['hello'], ['hello', 'reply']]);
-    expect(agent.messages().map((message) => message.content)).toEqual([
+    expect(messages.map((message) => message.content)).toEqual([
       'hello',
       'reply',
     ]);
+    expect(
+      (await turn.completeMessages()).map((message) => message.content),
+    ).toEqual(['hello', 'reply']);
+  });
+
+  it('exposes the full root-to-tip stream from agent.messageEvents() after ask resolves', async () => {
+    const agent = await Agent.create({});
+    await agent.ask('hello');
+
+    const messages = [];
+    const iterator = agent.messageEvents()[Symbol.asyncIterator]();
+    for (let i = 0; i < 2; i += 1) {
+      const next = await iterator.next();
+      if (next.done) break;
+      messages.push(next.value);
+    }
+    await iterator.return?.();
+
+    expect(messages.map((message) => message.content)).toEqual([
+      'hello',
+      'reply',
+    ]);
+  });
+
+  it('finishes an idle messageEvents stream after yielding the snapshot', async () => {
+    const agent = await Agent.create({});
+    const turn = await agent.ask('hello');
+    await turn.completeMessages();
+
+    const iterator = agent.messageEvents()[Symbol.asyncIterator]();
+    await expect(iterator.next()).resolves.toMatchObject({
+      value: expect.objectContaining({ content: 'hello' }),
+      done: false,
+    });
+    await expect(iterator.next()).resolves.toMatchObject({
+      value: expect.objectContaining({ content: 'reply' }),
+      done: false,
+    });
+    await expect(iterator.next()).resolves.toEqual({
+      value: undefined,
+      done: true,
+    });
+  });
+
+  it('returns the final assistant text via the package ask helper', async () => {
+    await expect(ask('hello')).resolves.toBe('reply');
+  });
+
+  it('uses the turn id for the final appended message only', async () => {
+    const agent = await Agent.create({});
+    const turn = await agent.ask('hello');
+    const messages: AskMessage[] = [];
+    for await (const message of turn.messageEvents()) {
+      messages.push(message);
+    }
+    await vi.waitFor(() => expect(agent.tipId).toBe(messages[1]!._meta.id));
+    expect(agent.tipId).not.toBe(messages[0]!._meta.id);
+  });
+
+  it('keeps failed turns out of committed history', async () => {
+    const error = new Error('boom');
+    mockedGenerateText.mockRejectedValueOnce(error);
+
+    const agent = await Agent.create({});
+    const turn = await agent.ask('hello');
+
+    await expect(turn.completeMessages()).rejects.toBe(error);
+    expect(agent.tipId).toBeNull();
+  });
+
+  it('keeps aborted turns out of committed history', async () => {
+    mockedGenerateText.mockImplementationOnce(
+      ({ abortSignal }: { abortSignal?: AbortSignal }) =>
+        new Promise((_, reject) => {
+          abortSignal?.addEventListener(
+            'abort',
+            () => reject(createAbortError()),
+            { once: true },
+          );
+        }),
+    );
+
+    const agent = await Agent.create({});
+    const turn = await agent.ask('hello');
+    const iterator = turn.messageEvents()[Symbol.asyncIterator]();
+    await expect(iterator.next()).resolves.toMatchObject({
+      value: expect.objectContaining({ content: 'hello' }),
+      done: false,
+    });
+    await agent.cancel();
+
+    await expect(turn.completeMessages()).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    expect(agent.tipId).toBeNull();
+    await iterator.return?.();
+  });
+
+  it('allows a new ask after a failed turn', async () => {
+    const error = new Error('boom');
+    mockedGenerateText.mockRejectedValueOnce(error);
+
+    const agent = await Agent.create({});
+    const failedTurn = await agent.ask('hello');
+
+    await expect(failedTurn.completeMessages()).rejects.toBe(error);
+    const nextTurn = await agent.ask('retry');
+    await expect(nextTurn.completeMessages()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'retry' }),
+        expect.objectContaining({ content: 'reply' }),
+      ]),
+    );
+  });
+
+  it('rewind updates committed state', async () => {
+    mockLog([
+      {
+        role: 'user',
+        content: 'first',
+        _meta: { id: 'a', parentId: null },
+      },
+      {
+        role: 'assistant',
+        content: 'second',
+        _meta: { id: 'b', parentId: 'a' },
+      },
+      {
+        role: 'user',
+        content: 'third',
+        _meta: { id: 'c', parentId: 'b' },
+      },
+      {
+        role: 'assistant',
+        content: 'fourth',
+        _meta: { id: 'd', parentId: 'c' },
+      },
+    ]);
+
+    const agent = await Agent.create({ resume: true });
+    await agent.rewind('c');
+    const messages: AskMessage[] = [];
+    const iterator = agent.messageEvents()[Symbol.asyncIterator]();
+    for (let i = 0; i < 2; i += 1) {
+      const next = await iterator.next();
+      if (next.done) break;
+      messages.push(next.value);
+    }
+    await iterator.return?.();
+
+    expect(messages.map((message) => message.content)).toEqual([
+      'first',
+      'second',
+    ]);
+  });
+
+  it('finishes a new messageEvents stream after clear', async () => {
+    mockLog([
+      {
+        role: 'user',
+        content: 'first',
+        _meta: { id: 'a', parentId: null },
+      },
+      {
+        role: 'assistant',
+        content: 'second',
+        _meta: { id: 'b', parentId: 'a' },
+      },
+    ]);
+
+    const agent = await Agent.create({ resume: true });
+    await agent.clear();
+
+    const iterator = agent.messageEvents()[Symbol.asyncIterator]();
+    await expect(iterator.next()).resolves.toEqual({
+      value: undefined,
+      done: true,
+    });
   });
 });

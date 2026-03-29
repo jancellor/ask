@@ -1,5 +1,9 @@
-import { Agent, type AgentOptions } from '../agent/agent.js';
-import { getToolCallParts } from '../agent/message-utils.js';
+import { ConfigReader, type ConfigOptions } from '../agent/config.js';
+import { Graph } from '../agent/graph.js';
+import {
+  extractFinalAssistantText,
+  getToolCallParts,
+} from '../agent/message-utils.js';
 import { ShutdownManager } from '../shutdown-manager.js';
 import {
   renderMarkdown,
@@ -13,7 +17,7 @@ export type RenderOutput = z.infer<typeof RenderOutput>;
 
 type RunBatchOptions = {
   prompt?: string;
-  agentOptions: AgentOptions;
+  agentOptions: ConfigOptions;
   renderOutput: RenderOutput;
 };
 
@@ -23,7 +27,7 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
   if (!prompt)
     throw new Error('no prompt provided (pass [prompt] or pipe stdin)');
 
-  const agent = await Agent.create(options.agentOptions);
+  const config = await new ConfigReader().resolve(options.agentOptions);
   const shouldRenderStdout = shouldRenderOutput(
     options.renderOutput,
     process.stdout.isTTY,
@@ -32,21 +36,29 @@ export async function runBatch(options: RunBatchOptions): Promise<void> {
     options.renderOutput,
     process.stderr.isTTY,
   );
+  const graph = await Graph.create();
 
   const shutdownManager = new ShutdownManager();
   shutdownManager.installSignalHandlers();
-  shutdownManager.addListener(async () => agent.cancelAll());
+  shutdownManager.addListener(async () => graph.close());
 
-  const response = await agent.ask(prompt, (newMessages) => {
-    // should show all intermediate message types, eg assistant text?
-    for (const part of getToolCallParts(newMessages)) {
-      console.error(
-        formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
-      );
+  try {
+    const turn = await graph.ask(null, prompt, config);
+
+    for await (const message of turn.messageEvents()) {
+      for (const part of getToolCallParts([message])) {
+        console.error(
+          formatToolCall(part.toolName, part.input, 80, shouldRenderStderr),
+        );
+      }
     }
-  });
-  const output = shouldRenderStdout ? renderMarkdown(response) : response;
-  console.log(output);
+
+    const response = extractFinalAssistantText(await turn.completeMessages());
+    const output = shouldRenderStdout ? renderMarkdown(response) : response;
+    console.log(output);
+  } finally {
+    await graph.close();
+  }
 }
 
 function shouldRenderOutput(

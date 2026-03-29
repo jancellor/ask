@@ -31,10 +31,9 @@ describe('messageGraph suffix loading', () => {
 
     const loaded = await MessageGraph.create();
 
-    expect(loaded.branch('c').map((message) => message._meta.id)).toEqual([
-      'b',
-      'c',
-    ]);
+    expect(loaded.branch('c', null).map((message) => message._meta.id)).toEqual(
+      ['b', 'c'],
+    );
   });
 
   it('returns null when rewind leaves the loaded suffix before hitting a boundary', async () => {
@@ -57,7 +56,7 @@ describe('messageGraph suffix loading', () => {
   });
 });
 
-describe('append', () => {
+describe('commit', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -72,16 +71,19 @@ describe('append', () => {
     ]);
 
     const graph = await MessageGraph.create();
-    const appended = await graph.append(
-      null,
-      [{ role: 'user', content: 'new' }],
-      {},
-    );
+    const appended: AskMessage[] = [
+      {
+        role: 'user',
+        content: 'new',
+        _meta: { id: 'b', parentId: null },
+      },
+    ];
+    await graph.commit(appended);
 
     expect(appended[0]!._meta.parentId).toBeNull();
   });
 
-  it('appends messages through the provided parent', async () => {
+  it('commits messages through the provided parent chain', async () => {
     mockLog([
       {
         role: 'user',
@@ -101,46 +103,59 @@ describe('append', () => {
     ]);
 
     const graph = await MessageGraph.create();
-    const appended = await graph.append(
-      'c',
-      [
-        { role: 'user', content: 'hello' },
-        { role: 'assistant', content: 'hi' },
-      ],
-      {},
-    );
+    const appended: AskMessage[] = [
+      {
+        role: 'user',
+        content: 'hello',
+        _meta: { id: 'd', parentId: 'c' },
+      },
+      {
+        role: 'assistant',
+        content: 'hi',
+        _meta: { id: 'e', parentId: 'd' },
+      },
+    ];
+    await graph.commit(appended);
 
     expect(appended[0]!._meta.parentId).toBe('c');
     expect(appended[1]!._meta.parentId).toBe(appended[0]!._meta.id);
   });
 
-  it('uses an explicit lastId when appending one message', async () => {
+  it('preserves an explicit id when committing one message', async () => {
     mockLog([]);
 
     const graph = await MessageGraph.create();
-    const appended = await graph.append(
-      null,
-      [{ role: 'assistant', content: 'final' }],
-      { lastId: 'pending-id' },
-    );
+    const appended: AskMessage[] = [
+      {
+        role: 'assistant',
+        content: 'final',
+        _meta: { id: 'pending-id', parentId: null },
+      },
+    ];
+    await graph.commit(appended);
 
     expect(appended[0]!._meta.id).toBe('pending-id');
   });
 
-  it('uses an explicit lastId only for the final appended message', async () => {
+  it('preserves caller-provided ids across a committed chain', async () => {
     mockLog([]);
 
     const graph = await MessageGraph.create();
-    const appended = await graph.append(
-      null,
-      [
-        { role: 'user', content: 'one' },
-        { role: 'assistant', content: 'two' },
-      ],
-      { lastId: 'pending-id' },
-    );
+    const appended: AskMessage[] = [
+      {
+        role: 'user',
+        content: 'one',
+        _meta: { id: 'first-id', parentId: null },
+      },
+      {
+        role: 'assistant',
+        content: 'two',
+        _meta: { id: 'pending-id', parentId: 'first-id' },
+      },
+    ];
+    await graph.commit(appended);
 
-    expect(appended[0]!._meta.id).not.toBe('pending-id');
+    expect(appended[0]!._meta.id).toBe('first-id');
     expect(appended[1]!._meta.id).toBe('pending-id');
     expect(appended[1]!._meta.parentId).toBe(appended[0]!._meta.id);
   });

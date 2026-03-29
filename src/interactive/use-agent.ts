@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Agent, type AgentOptions } from '../agent/agent.js';
+import type { ResolvedConfig } from '../agent/config.js';
+import type { MessageNode } from '../agent/message-graph.js';
 import type { AskMessage } from '../agent/message-utils.js';
 import { ShutdownManager } from '../shutdown-manager.js';
-
 import { unawaited } from '../unawaited/unawaited.js';
 
 type UseAgentOptions = {
@@ -11,16 +12,19 @@ type UseAgentOptions = {
 };
 
 export type UseAgentResult = {
-  agent: Agent;
   messages: AskMessage[];
-  model: string;
-  provider: string;
-  variant: string | null;
+  error: unknown | null;
+  config: ResolvedConfig;
+  tipId: string | null;
+  messageTree: () => MessageNode | null;
   pendingOperation: boolean;
   ask: (prompt: string) => Promise<void>;
   cancel: () => Promise<void>;
   clear: (beforeClear?: () => void) => Promise<void>;
-  rewind: (messageId: string | null) => Promise<void>;
+  rewind: (
+    messageId: string | null,
+    beforeRewind?: () => void,
+  ) => Promise<void>;
 };
 
 export function useAgent({
@@ -29,8 +33,10 @@ export function useAgent({
 }: UseAgentOptions): UseAgentResult | null {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [messages, setMessages] = useState<AskMessage[]>([]);
-  const [pendingCount, setPendingCount] = useState(0);
-  const pendingOperation = pendingCount > 0;
+  const [error, setError] = useState<unknown | null>(null);
+  const [pendingOperation, setPendingOperation] = useState(false);
+  const [streamVersion, setStreamVersion] = useState(0);
+  const streamVersionRef = useRef(0);
 
   useEffect(() => {
     let inCleanup = false;
@@ -41,7 +47,7 @@ export function useAgent({
       if (!disposePromise) {
         disposePromise = (async () => {
           const createdAgent = await createPromise;
-          await createdAgent.cancelAll();
+          await createdAgent.close();
         })();
       }
       return disposePromise;
@@ -74,66 +80,82 @@ export function useAgent({
 
   useEffect(() => {
     if (!agent) return;
-    setMessages([...agent.messages()]);
-  }, [agent]);
+    const version = ++streamVersionRef.current;
 
-  const runWithPendingOperation = useCallback(
-    async (task: () => Promise<unknown>): Promise<void> => {
-      setPendingCount((n) => n + 1);
+    const consumeMessages = async (): Promise<void> => {
+      const collected: AskMessage[] = [];
+      setMessages([]);
+      setError(null);
+
       try {
-        await task();
+        for await (const message of agent.messageEvents()) {
+          if (streamVersionRef.current !== version) return;
+          collected.push(message);
+          setMessages([...collected]);
+        }
+      } catch (e) {
+        if (streamVersionRef.current !== version) return;
+        setError(e);
       } finally {
-        setPendingCount((n) => n - 1);
+        if (streamVersionRef.current === version) {
+          setPendingOperation(false);
+        }
       }
-    },
-    [],
-  );
+    };
+
+    unawaited(consumeMessages());
+    return () => {
+      streamVersionRef.current += 1;
+    };
+  }, [agent, streamVersion]);
 
   const ask = useCallback(
-    (prompt: string): Promise<void> => {
-      if (!agent) return Promise.resolve();
-      return runWithPendingOperation(() =>
-        agent.ask(prompt, () => setMessages([...agent.messages()])),
-      );
+    async (prompt: string): Promise<void> => {
+      if (!agent) return;
+      setPendingOperation(true);
+      await agent.ask(prompt);
+      setStreamVersion((v) => v + 1);
     },
-    [agent, runWithPendingOperation],
+    [agent],
   );
 
-  const cancel = useCallback((): Promise<void> => {
-    if (!agent) return Promise.resolve();
-    return runWithPendingOperation(() => agent.cancelCurrent());
-  }, [agent, runWithPendingOperation]);
+  const cancel = useCallback(async (): Promise<void> => {
+    await agent?.cancel();
+  }, [agent]);
 
   const clear = useCallback(
-    (beforeClear?: () => void): Promise<void> => {
-      if (!agent) return Promise.resolve();
-      return runWithPendingOperation(async () => {
-        await agent.clear(beforeClear);
-        setMessages([...agent.messages()]);
-      });
+    async (beforeClear?: () => void): Promise<void> => {
+      if (!agent) return;
+      await agent.clear();
+      beforeClear?.();
+      setPendingOperation(false);
+      setStreamVersion((v) => v + 1);
     },
-    [agent, runWithPendingOperation],
+    [agent],
   );
 
   const rewind = useCallback(
-    (messageId: string | null): Promise<void> => {
-      if (!agent) return Promise.resolve();
-      return runWithPendingOperation(async () => {
-        await agent.rewind(messageId);
-        setMessages([...agent.messages()]);
-      });
+    async (
+      messageId: string | null,
+      beforeRewind?: () => void,
+    ): Promise<void> => {
+      if (!agent) return;
+      await agent.rewind(messageId);
+      beforeRewind?.();
+      setPendingOperation(false);
+      setStreamVersion((v) => v + 1);
     },
-    [agent, runWithPendingOperation],
+    [agent],
   );
 
   if (!agent) return null;
 
   return {
-    agent,
     messages,
-    model: agent.model,
-    provider: agent.provider,
-    variant: agent.variant,
+    error,
+    config: agent.config,
+    tipId: agent.tipId,
+    messageTree: () => agent.messageTree(),
     pendingOperation,
     ask,
     cancel,

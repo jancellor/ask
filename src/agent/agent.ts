@@ -3,11 +3,12 @@ import {
   ConfigReader,
   type ResolvedConfig,
 } from './config.js';
-import { AskMessage } from './message-utils.js';
-import { type MessageNode, MessageGraph } from './message-graph.js';
-import { TaskQueue } from './task-queue.js';
-import { type Turn } from './turn.js';
+import { type AskMessage } from './message-utils.js';
+import { type MessageNode } from './message-graph.js';
 import { Graph } from './graph.js';
+import { Turn } from './turn.js';
+import { TaskQueue } from '../util/task-queue.js';
+import { promiseWithResolvers } from '../util/promise-with-resolvers.js';
 
 export type { AskMessage, AskMessageMeta } from './message-utils.js';
 export type { MessageNode } from './message-graph.js';
@@ -16,16 +17,14 @@ export type AgentOptions = ConfigOptions & {
   resume?: string | true;
 };
 
-export const CANCELED_MESSAGE = '[Canceled]';
-export const ERROR_MESSAGE = '[Error]';
-
 export class Agent {
+  private pendingTurn: Turn | null = null;
   private queue = new TaskQueue();
 
   private constructor(
     private _tipId: string | null,
     private graph: Graph,
-    private config: ResolvedConfig,
+    private _config: ResolvedConfig,
   ) {}
 
   static async create(options: AgentOptions): Promise<Agent> {
@@ -38,12 +37,10 @@ export class Agent {
 
     if (options.resume) {
       const resumeId =
-        typeof options.resume === 'string'
-          ? options.resume
-          : graph.messageGraph.lastId();
+        typeof options.resume === 'string' ? options.resume : graph.lastId;
 
       if (resumeId !== null) {
-        if (!graph.messageGraph.has(resumeId)) {
+        if (!graph.has(resumeId)) {
           throw new Error(`unknown message ID: ${resumeId}`);
         }
         tipId = resumeId;
@@ -57,81 +54,68 @@ export class Agent {
     return this._tipId;
   }
 
+  get config(): ResolvedConfig {
+    return this._config;
+  }
+
   messages(): AskMessage[] {
-    return this.graph.messageGraph.branch(this._tipId);
+    return this.graph.messages(this._tipId, null);
   }
 
-  branch(): AsyncIterable<AskMessage> {
-    return this.graph.branch(this._tipId);
+  ask(prompt: string): Promise<Turn> {
+    // feels a bit awkward the implementation of this method, refactor welcome
+    // key issue is turn must resolve for caller before queue is unblocked
+    const { promise, resolve, reject } = promiseWithResolvers<Turn>();
+    this.queue
+      .submit(async () => {
+        const turn = await this.graph.ask(this._tipId, prompt, this._config);
+        resolve(turn);
+        await this.manageTurn(turn);
+      })
+      .catch(reject);
+    return promise;
   }
 
-  messageTree(): MessageNode | null {
-    return this.graph.messageGraph.tree(this._tipId);
-  }
-
-  get model(): string {
-    return this.config.model;
-  }
-
-  get provider(): string {
-    return this.config.provider;
-  }
-
-  get variant(): string | null {
-    return this.config.variant;
-  }
-
-  ask(
-    prompt: string,
-    onMessages?: (messages: AskMessage[]) => void | Promise<void>,
-  ): Promise<string> {
-    return this.queue.submit(async (signal) => {
-      let turn: Turn;
-      const turnOnMessages = async (messages: AskMessage[]) => {
-        this._tipId = turn.parentId;
-        await onMessages?.(messages);
-      };
-
-      turn = this.graph.createTurn(
-        this.config,
-        this.graph.messageGraph,
-        this._tipId,
-        prompt,
-        turnOnMessages,
-      );
-      if (signal.aborted) {
-        turn.cancel();
-      } else {
-        signal.addEventListener('abort', () => turn.cancel(), { once: true });
-      }
-
-      const result = await turn.done;
-      this._tipId = turn.parentId;
-      return result;
-    });
-  }
-
-  async cancelCurrent(): Promise<void> {
-    await this.queue.cancelCurrent();
-  }
-
-  async cancelAll(): Promise<void> {
-    await this.queue.cancelAll();
-  }
-
-  async clear(beforeClear?: () => void): Promise<void> {
-    await this.queue.submit(async () => {
-      beforeClear?.();
-      this._tipId = null;
-    }, true);
+  async cancel(): Promise<void> {
+    await Promise.all([this.queue.clear(), this.pendingTurn?.cancel()]);
   }
 
   async rewind(messageId: string | null): Promise<void> {
-    await this.queue.submit(async () => {
-      const resolved = this.graph.messageGraph.rewindBoundary(messageId);
-      // null means we walked past the loaded suffix — don't rewind.
-      // Use clear() to reset to an empty conversation.
-      if (resolved !== null) this._tipId = resolved;
-    }, true);
+    await this.cancel();
+    const resolved = this.graph.rewindBoundary(messageId);
+    if (resolved !== null) {
+      this._tipId = resolved;
+    }
+  }
+
+  async clear(): Promise<void> {
+    await this.cancel();
+    this._tipId = null;
+  }
+
+  async *messageEvents(): AsyncIterable<AskMessage> {
+    const turn = this.pendingTurn;
+    yield* this.messages();
+    if (turn) {
+      yield* turn.messageEvents();
+    }
+  }
+
+  messageTree(): MessageNode | null {
+    return this.graph.tree(this._tipId);
+  }
+
+  async close(): Promise<void> {
+    await this.cancel();
+    await this.graph.close();
+  }
+
+  private async manageTurn(turn: Turn): Promise<void> {
+    this.pendingTurn = turn;
+    try {
+      await turn.completeMessages();
+      this._tipId = turn.id;
+    } catch {}
+    this.pendingTurn = null;
   }
 }
